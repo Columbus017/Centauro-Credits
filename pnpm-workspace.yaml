@@ -1,3 +1,7 @@
 allowBuilds:
+  # Both are transitive deps of next-intl (its message extractor); their build
+  # scripts only set up native bindings.
+  '@parcel/watcher': true
+  '@swc/core': true
   sharp: false
   unrs-resolver: false
