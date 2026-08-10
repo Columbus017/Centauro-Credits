@@ -1,0 +1,53 @@
+{
+  "app": {
+    "name": "Centauro",
+    "tagline": "Consola de Créditos",
+    "title": "Centauro — Consola de Créditos y Cobranza",
+    "description": "Sistema de administración de clientes, cobradores, rutas, créditos, pagos y reportes."
+  },
+  "nav": {
+    "groups": {
+      "overview": "General",
+      "portfolio": "Cartera",
+      "operations": "Operación",
+      "insights": "Análisis",
+      "field": "Campo"
+    },
+    "dashboard": "Panel",
+    "clients": "Clientes",
+    "credits": "Créditos",
+    "payments": "Pagos",
+    "dailyClose": "Ingreso diario",
+    "collectors": "Cobradores",
+    "routes": "Rutas",
+    "reports": "Reportes",
+    "admin": "Administración",
+    "fieldCollect": "Ingresar pago",
+    "fieldToday": "Pagos de hoy"
+  },
+  "shell": {
+    "openMenu": "Abrir menú",
+    "closeMenu": "Cerrar menú",
+    "search": "Buscar clientes, créditos…",
+    "notifications": "Notificaciones",
+    "toggleTheme": "Cambiar tema",
+    "signOut": "Cerrar sesión"
+  },
+  "roles": {
+    "admin": "Administrador",
+    "collector": "Cobrador"
+  },
+  "status": {
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "cancelled": "Cancelado",
+    "badRecord": "Mal record",
+    "posted": "Aplicado",
+    "voided": "Anulado"
+  },
+  "common": {
+    "locale": "Idioma",
+    "spanish": "Español",
+    "english": "Inglés"
+  }
+}

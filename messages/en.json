@@ -1,0 +1,53 @@
+{
+  "app": {
+    "name": "Centauro",
+    "tagline": "Collections Console",
+    "title": "Centauro — Lending & Collections Console",
+    "description": "Administration system for clients, collectors, routes, credits, payments and reports."
+  },
+  "nav": {
+    "groups": {
+      "overview": "Overview",
+      "portfolio": "Portfolio",
+      "operations": "Operations",
+      "insights": "Insights",
+      "field": "Field"
+    },
+    "dashboard": "Dashboard",
+    "clients": "Clients",
+    "credits": "Credits",
+    "payments": "Payments",
+    "dailyClose": "Daily close",
+    "collectors": "Collectors",
+    "routes": "Routes",
+    "reports": "Reports",
+    "admin": "Administration",
+    "fieldCollect": "Record payment",
+    "fieldToday": "Today's payments"
+  },
+  "shell": {
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "search": "Search clients, credits…",
+    "notifications": "Notifications",
+    "toggleTheme": "Toggle theme",
+    "signOut": "Sign out"
+  },
+  "roles": {
+    "admin": "Administrator",
+    "collector": "Collector"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "cancelled": "Paid off",
+    "badRecord": "Bad record",
+    "posted": "Posted",
+    "voided": "Voided"
+  },
+  "common": {
+    "locale": "Language",
+    "spanish": "Spanish",
+    "english": "English"
+  }
+}
