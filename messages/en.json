@@ -403,6 +403,7 @@
       "cashFormula": "(base + collected) − (placed + surplus)",
       "payments": "Payments received",
       "paymentsDescription": "Enter the card number and amount of each payment received.",
+      "paymentCode": "Card number",
       "addPayment": "Add payment",
       "remove": "Remove",
       "save": "Save close"

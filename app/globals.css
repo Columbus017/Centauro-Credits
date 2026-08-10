@@ -145,3 +145,35 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/*
+ * Receipts are printed on the spot for clients, so the printed page must be
+ * only the receipt itself — no sidebar, topbar or action buttons.
+ */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  aside,
+  header {
+    display: none !important;
+  }
+
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .lg\:pl-64 {
+    padding-left: 0 !important;
+  }
+
+  .print-area {
+    margin: 0 !important;
+    max-width: none !important;
+    padding: 24px !important;
+    box-shadow: none !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+  }
+}

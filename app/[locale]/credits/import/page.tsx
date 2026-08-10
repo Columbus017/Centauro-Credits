@@ -1,0 +1,45 @@
+import { getTranslations, setRequestLocale } from 'next-intl/server'
+
+import { AppShell } from '@/components/app-shell'
+import { CreditHistoryForm } from '@/components/credit-history-form'
+import { PageHeader } from '@/components/page-header'
+import { Button } from '@/components/ui/button'
+import { Link } from '@/i18n/navigation'
+import { collectors, customers, fullName, INTEREST_RATE } from '@/lib/mock-data'
+
+export default async function ImportCreditPage({ params }: PageProps<'/[locale]'>) {
+  const { locale } = await params
+  setRequestLocale(locale)
+
+  const t = await getTranslations('credits')
+  const tc = await getTranslations('common')
+
+  const customerOptions = customers
+    .filter((customer) => customer.active)
+    .map((customer) => ({ id: customer.id, name: fullName(customer) }))
+  const collectorOptions = collectors
+    .filter((collector) => collector.active)
+    .map((collector) => ({ id: collector.id, name: fullName(collector) }))
+
+  return (
+    <AppShell title={t('importPage.title')}>
+      <PageHeader
+        breadcrumbs={[{ label: t('title'), href: '/credits' }, { label: t('importPage.title') }]}
+        title={t('importPage.title')}
+        description={t('importPage.description')}
+        actions={
+          <Button variant="outline" size="lg" render={<Link href="/credits" />}>
+            {tc('cancel')}
+          </Button>
+        }
+      />
+
+      <CreditHistoryForm
+        customers={customerOptions}
+        collectors={collectorOptions}
+        interestRate={INTEREST_RATE}
+        locale={locale}
+      />
+    </AppShell>
+  )
+}

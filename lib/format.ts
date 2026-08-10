@@ -72,6 +72,14 @@ export function formatDateShort(iso: string, locale = 'es-GT') {
   }).format(parseISODate(iso))
 }
 
+/** `ene` — short month name from a `YYYY-MM` key, for chart axes. */
+export function formatMonth(yearMonth: string, locale = 'es-GT') {
+  const [year, month] = yearMonth.split('-').map(Number)
+  return new Intl.DateTimeFormat(locale, { month: 'short' }).format(
+    new Date(year, month - 1, 1),
+  )
+}
+
 /** Whole days between two `YYYY-MM-DD` dates. */
 export function daysBetween(fromISO: string, toISO: string) {
   const ms = parseISODate(toISO).getTime() - parseISODate(fromISO).getTime()

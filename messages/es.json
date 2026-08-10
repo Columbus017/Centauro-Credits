@@ -403,6 +403,7 @@
       "cashFormula": "(base + recuperado) − (colocado + excedente)",
       "payments": "Pagos del día",
       "paymentsDescription": "Ingrese el No. de tarjeta y el monto de cada pago recibido.",
+      "paymentCode": "No. de tarjeta",
       "addPayment": "Agregar pago",
       "remove": "Quitar",
       "save": "Guardar ingreso"
