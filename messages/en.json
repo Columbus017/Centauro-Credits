@@ -46,8 +46,469 @@
     "voided": "Voided"
   },
   "common": {
+    "actions": "Actions",
+    "all": "All",
+    "back": "Back",
+    "cancel": "Cancel",
+    "save": "Save",
+    "search": "Search",
+    "filters": "Filters",
+    "view": "View",
+    "edit": "Edit",
+    "status": "Status",
+    "date": "Date",
+    "amount": "Amount",
+    "balance": "Balance",
+    "total": "Total",
+    "route": "Route",
+    "collector": "Collector",
+    "client": "Client",
+    "commerce": "Business",
+    "dpi": "National ID",
+    "mobile": "Phone",
+    "mobile2": "Alternate phone",
+    "address": "Address",
+    "name": "Name",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "birthDate": "Date of birth",
+    "none": "Unassigned",
+    "empty": "No records to show.",
+    "of": "of",
+    "days": "days",
     "locale": "Language",
     "spanish": "Spanish",
     "english": "English"
+  },
+  "login": {
+    "title": "Welcome back",
+    "subtitle": "Sign in to the collections console to continue.",
+    "username": "Username",
+    "password": "Password",
+    "submit": "Sign in",
+    "forgot": "Forgot your password?",
+    "pitch": "The operating console for lending and field collections.",
+    "statCollection": "Collection rate",
+    "statPortfolio": "Portfolio",
+    "rights": "All rights reserved."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "description": "Portfolio, collections and delinquency as of today.",
+    "tabs": {
+      "portfolio": "Portfolio",
+      "collections": "Collections",
+      "delinquency": "Delinquency"
+    },
+    "kpi": {
+      "outstanding": "Outstanding balance",
+      "collected": "Collected",
+      "delinquency": "Delinquency rate",
+      "activeCredits": "Active credits"
+    },
+    "trend": {
+      "title": "Disbursed vs collected",
+      "description": "Capital placed against cash collected, by month.",
+      "disbursed": "Disbursed",
+      "collected": "Collected"
+    },
+    "cashFlow": {
+      "title": "Cash flow",
+      "description": "Base, collections, surplus and net cash by month.",
+      "base": "Base",
+      "collected": "Collected",
+      "surplus": "Surplus",
+      "cash": "Net cash"
+    },
+    "collectorPerformance": {
+      "title": "Collector performance",
+      "description": "Collected against each collector's outstanding book.",
+      "portfolio": "Portfolio",
+      "collected": "Collected",
+      "clients": "Clients",
+      "credits": "Credits"
+    },
+    "aging": {
+      "title": "Balance aging",
+      "description": "Active credits by days since their last payment.",
+      "current": "Current",
+      "d1to30": "1–30 days",
+      "d31to60": "31–60 days",
+      "d60plus": "60+ days",
+      "credits": "credits"
+    },
+    "atRisk": {
+      "title": "Accounts at risk",
+      "description": "Active credits with no payment in over 30 days.",
+      "lastPayment": "Last payment",
+      "daysLate": "Days without payment",
+      "never": "No payments"
+    }
+  },
+  "clients": {
+    "title": "Clients",
+    "description": "Manage clients, their balance and the route they belong to.",
+    "new": "New client",
+    "searchPlaceholder": "Search by name or ID…",
+    "allRoutes": "All routes",
+    "allStatuses": "All statuses",
+    "summary": {
+      "total": "Total clients",
+      "active": "Active",
+      "atRisk": "At risk",
+      "outstanding": "Total balance"
+    },
+    "table": {
+      "client": "Client",
+      "commerce": "Business",
+      "route": "Route",
+      "collector": "Collector",
+      "balance": "Balance",
+      "credits": "Credits"
+    },
+    "detail": {
+      "credits": "Credits",
+      "payments": "Payments",
+      "profile": "Client information",
+      "since": "Client since",
+      "activeCredits": "Active credits",
+      "totalBalance": "Outstanding balance",
+      "totalPaid": "Total paid",
+      "noCredits": "This client has no credits on record.",
+      "noPayments": "This client has no payments on record."
+    },
+    "form": {
+      "createTitle": "Create client",
+      "createDescription": "Register a new client and assign them to a route.",
+      "personal": "Personal details",
+      "personalDescription": "The client's identity.",
+      "contact": "Contact",
+      "contactDescription": "How the collector will reach them.",
+      "assignment": "Assignment",
+      "assignmentDescription": "Route and business the client belongs to.",
+      "save": "Save client",
+      "dpiHint": "13 digits, as printed on the document."
+    }
+  },
+  "credits": {
+    "title": "Credits",
+    "description": "Credits placed, their balance and repayment status.",
+    "new": "New credit",
+    "import": "Import existing",
+    "searchPlaceholder": "Search by client or card number…",
+    "allStatuses": "All statuses",
+    "summary": {
+      "capital": "Capital placed",
+      "outstanding": "Outstanding balance",
+      "active": "Active credits",
+      "atRisk": "At risk"
+    },
+    "atRiskHint": "No payment in over 30 days",
+    "table": {
+      "code": "Card no.",
+      "client": "Client",
+      "collector": "Collector",
+      "route": "Route",
+      "principal": "Principal",
+      "total": "Total due",
+      "outstanding": "Balance",
+      "payments": "Payments",
+      "startDate": "Start date",
+      "lastPayment": "Last payment"
+    },
+    "detail": {
+      "title": "Credit detail",
+      "disbursedOn": "Disbursed on",
+      "principal": "Principal",
+      "interest": "Interest",
+      "total": "Total due",
+      "outstanding": "Balance",
+      "paid": "Paid",
+      "progress": "Progress",
+      "paymentsMade": "{count} payments posted",
+      "ledger": "Statement",
+      "ledgerDescription": "Credit movements, newest first.",
+      "origination": "Credit disbursed",
+      "payment": "Payment",
+      "void": "Void",
+      "runningBalance": "Balance",
+      "cancelledOn": "Paid off on",
+      "daysToPayoff": "Paid off in {days} days"
+    },
+    "form": {
+      "createTitle": "New credit",
+      "createDescription": "Register a new credit for an existing client.",
+      "details": "Credit details",
+      "detailsDescription": "The total due is calculated with {rate} interest.",
+      "assignment": "Assignment",
+      "assignmentDescription": "Client and responsible collector.",
+      "code": "Card number",
+      "principal": "Principal disbursed",
+      "startDate": "Disbursement date",
+      "computed": "Total due",
+      "computedHint": "Principal plus {rate} interest.",
+      "save": "Save credit"
+    },
+    "importPage": {
+      "title": "Import existing credit",
+      "description": "Register a credit already in the field together with the payments the client has made.",
+      "history": "Payments already made",
+      "historyDescription": "Add each payment in the order it was received; the balance recalculates automatically.",
+      "addPayment": "Add payment",
+      "remove": "Remove",
+      "resulting": "Resulting balance",
+      "save": "Save credit and history"
+    }
+  },
+  "collectors": {
+    "title": "Collectors",
+    "description": "Field staff, their routes and their collections.",
+    "new": "New collector",
+    "searchPlaceholder": "Search collector…",
+    "summary": {
+      "total": "Total",
+      "active": "Active",
+      "portfolio": "Assigned portfolio",
+      "collected": "Collected"
+    },
+    "table": {
+      "collector": "Collector",
+      "routes": "Routes",
+      "clients": "Clients",
+      "credits": "Credits",
+      "portfolio": "Portfolio",
+      "collected": "Collected"
+    },
+    "detail": {
+      "profile": "Collector details",
+      "routes": "Assigned routes",
+      "credits": "Credits in their charge",
+      "closes": "Recent daily closes",
+      "noRoutes": "This collector has no routes assigned.",
+      "noCredits": "This collector has no credits in their charge.",
+      "noCloses": "This collector has no closes on record."
+    },
+    "form": {
+      "createTitle": "New collector",
+      "createDescription": "Register a collector so routes and credits can be assigned.",
+      "personal": "Personal details",
+      "personalDescription": "The collector's identity.",
+      "contact": "Contact",
+      "contactDescription": "How to reach them.",
+      "save": "Save collector"
+    }
+  },
+  "routes": {
+    "title": "Routes",
+    "description": "Collection zones and the collector responsible for each.",
+    "new": "New route",
+    "searchPlaceholder": "Search route…",
+    "summary": {
+      "total": "Total routes",
+      "active": "Active",
+      "clients": "Clients",
+      "portfolio": "Portfolio"
+    },
+    "table": {
+      "code": "Code",
+      "route": "Route",
+      "collector": "Collector",
+      "clients": "Clients",
+      "credits": "Active credits",
+      "portfolio": "Portfolio"
+    },
+    "detail": {
+      "profile": "Route details",
+      "details": "Description",
+      "clients": "Clients on this route",
+      "noClients": "This route has no clients assigned."
+    },
+    "form": {
+      "createTitle": "New route",
+      "createDescription": "Create a collection zone and assign a collector.",
+      "details": "Route details",
+      "detailsDescription": "Code, name and coverage.",
+      "code": "Code",
+      "name": "Name",
+      "notes": "Description",
+      "save": "Save route"
+    }
+  },
+  "payments": {
+    "title": "Payments",
+    "description": "Every payment posted against a credit.",
+    "searchPlaceholder": "Search by client or card number…",
+    "allCollectors": "All collectors",
+    "summary": {
+      "today": "Collected today",
+      "count": "Payments posted",
+      "average": "Average payment",
+      "voided": "Voided"
+    },
+    "table": {
+      "date": "Date",
+      "credit": "Card no.",
+      "client": "Client",
+      "collector": "Collector",
+      "route": "Route",
+      "amount": "Payment",
+      "balance": "Balance",
+      "receipt": "Receipt"
+    },
+    "record": {
+      "action": "Record payment",
+      "title": "Record payment",
+      "subtitle": "Credit {credit} · {customer}",
+      "outstanding": "Current balance",
+      "amount": "Payment amount",
+      "date": "Payment date",
+      "remaining": "Balance after payment",
+      "overpay": "The payment cannot exceed the outstanding balance.",
+      "cancel": "Cancel",
+      "submit": "Post payment"
+    },
+    "receipt": {
+      "title": "Payment receipt",
+      "number": "Receipt no.",
+      "issuedTo": "Received from",
+      "concept": "Concept",
+      "conceptValue": "Payment towards credit {credit}",
+      "amount": "Amount received",
+      "previousBalance": "Previous balance",
+      "newBalance": "Current balance",
+      "collectedBy": "Received by",
+      "print": "Print",
+      "footer": "This receipt is valid only with the company stamp.",
+      "voided": "This payment was voided."
+    }
+  },
+  "dailyClose": {
+    "title": "Daily close",
+    "description": "Cash close per collector: base handed out, the day's collections and credits placed.",
+    "new": "New close",
+    "form": {
+      "title": "Close of day",
+      "description": "Pick the collector and date, then record the payments received.",
+      "collector": "Collector",
+      "date": "Date",
+      "base": "Base",
+      "baseHint": "Cash the collector started the day with.",
+      "collected": "Collected",
+      "collectedHint": "Sum of the payments entered.",
+      "disbursed": "Credits placed",
+      "disbursedHint": "Cash handed out as new credits.",
+      "surplus": "Surplus",
+      "surplusHint": "Cash returned over the base.",
+      "cash": "Cash to hand in",
+      "cashFormula": "(base + collected) − (placed + surplus)",
+      "payments": "Payments received",
+      "paymentsDescription": "Enter the card number and amount of each payment received.",
+      "addPayment": "Add payment",
+      "remove": "Remove",
+      "save": "Save close"
+    },
+    "table": {
+      "date": "Date",
+      "collector": "Collector",
+      "base": "Base",
+      "collected": "Collected",
+      "disbursed": "Placed",
+      "surplus": "Surplus",
+      "cash": "Cash"
+    },
+    "history": "Recorded closes"
+  },
+  "reports": {
+    "title": "Reports",
+    "description": "Generate the operational reports as PDF.",
+    "generate": "Generate PDF",
+    "filters": "Filters",
+    "recent": "Recent reports",
+    "recentEmpty": "No report has been generated yet.",
+    "generatedBy": "Generated by",
+    "defs": {
+      "credits": {
+        "title": "Credits report",
+        "description": "Every credit placed with principal, total due and outstanding balance."
+      },
+      "customersByCollector": {
+        "title": "Clients by collector",
+        "description": "Client roster grouped by collector and route."
+      },
+      "incomeByCollector": {
+        "title": "Income by collector",
+        "description": "Payments received and cash closes summarized by collector."
+      }
+    },
+    "filterLabels": {
+      "dateRange": "Date range",
+      "route": "Route",
+      "status": "Status",
+      "collector": "Collector"
+    }
+  },
+  "admin": {
+    "title": "Administration",
+    "tabs": {
+      "users": "Users",
+      "settings": "Settings"
+    },
+    "users": {
+      "title": "Users",
+      "description": "Accounts with access to the system and their role.",
+      "new": "New user",
+      "searchPlaceholder": "Search user…",
+      "table": {
+        "user": "User",
+        "username": "Username",
+        "role": "Role",
+        "linkedCollector": "Linked collector",
+        "lastActive": "Last active"
+      },
+      "dialog": {
+        "title": "New user",
+        "description": "Create an account and assign it a role.",
+        "password": "Password",
+        "confirm": "Confirm password",
+        "role": "Role",
+        "linkedCollector": "Linked collector",
+        "linkedHint": "Collector accounts only; scopes what they can see.",
+        "submit": "Create user"
+      }
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "Business parameters and console preferences.",
+      "business": "Business parameters",
+      "businessDescription": "These affect the calculation of every new credit.",
+      "interestRate": "Interest rate",
+      "interestRateHint": "Applied to the principal when the credit is created.",
+      "goodRecordDays": "Days for a good record",
+      "goodRecordDaysHint": "A credit paid off after this many days is flagged as a bad record.",
+      "currency": "Currency",
+      "preferences": "Preferences",
+      "preferencesDescription": "Settings for this console.",
+      "language": "Language",
+      "languageHint": "Changes the language of the whole interface.",
+      "notifications": "Email notifications",
+      "notificationsHint": "Send the daily collections summary.",
+      "danger": "Sensitive zone",
+      "dangerDescription": "These actions affect historical data."
+    }
+  },
+  "field": {
+    "collect": {
+      "title": "Record payment",
+      "description": "Active credits on your route. Pick one to record its payment.",
+      "searchPlaceholder": "Search client or card number…",
+      "empty": "You have no active credits assigned."
+    },
+    "today": {
+      "title": "Today's payments",
+      "description": "Payments you have recorded today.",
+      "total": "Total received today",
+      "count": "Payments",
+      "empty": "You have not recorded any payments today yet."
+    }
   }
 }

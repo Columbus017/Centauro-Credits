@@ -46,8 +46,469 @@
     "voided": "Anulado"
   },
   "common": {
+    "actions": "Acciones",
+    "all": "Todos",
+    "back": "Regresar",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "search": "Buscar",
+    "filters": "Filtros",
+    "view": "Ver",
+    "edit": "Editar",
+    "status": "Estado",
+    "date": "Fecha",
+    "amount": "Monto",
+    "balance": "Saldo",
+    "total": "Total",
+    "route": "Ruta",
+    "collector": "Cobrador",
+    "client": "Cliente",
+    "commerce": "Comercio",
+    "dpi": "DPI",
+    "mobile": "Teléfono",
+    "mobile2": "Teléfono alterno",
+    "address": "Dirección",
+    "name": "Nombre",
+    "firstName": "Nombres",
+    "lastName": "Apellidos",
+    "birthDate": "Fecha de nacimiento",
+    "none": "Sin asignar",
+    "empty": "No hay registros para mostrar.",
+    "of": "de",
+    "days": "días",
     "locale": "Idioma",
     "spanish": "Español",
     "english": "Inglés"
+  },
+  "login": {
+    "title": "Bienvenido",
+    "subtitle": "Ingrese a la consola de cobranza para continuar.",
+    "username": "Usuario",
+    "password": "Contraseña",
+    "submit": "Iniciar sesión",
+    "forgot": "¿Olvidó su contraseña?",
+    "pitch": "La consola operativa para créditos y cobranza de campo.",
+    "statCollection": "Recuperación",
+    "statPortfolio": "Cartera",
+    "rights": "Todos los derechos reservados."
+  },
+  "dashboard": {
+    "title": "Panel",
+    "description": "Estado de la cartera, recuperación y morosidad al día de hoy.",
+    "tabs": {
+      "portfolio": "Cartera",
+      "collections": "Recuperación",
+      "delinquency": "Morosidad"
+    },
+    "kpi": {
+      "outstanding": "Saldo por recuperar",
+      "collected": "Recuperado",
+      "delinquency": "Índice de morosidad",
+      "activeCredits": "Créditos activos"
+    },
+    "trend": {
+      "title": "Colocación y recuperación",
+      "description": "Capital entregado contra efectivo recuperado por mes.",
+      "disbursed": "Colocado",
+      "collected": "Recuperado"
+    },
+    "cashFlow": {
+      "title": "Flujo de caja",
+      "description": "Base, recuperación, excedentes y efectivo neto por mes.",
+      "base": "Base",
+      "collected": "Recuperado",
+      "surplus": "Excedente",
+      "cash": "Efectivo neto"
+    },
+    "collectorPerformance": {
+      "title": "Rendimiento por cobrador",
+      "description": "Recuperado contra saldo pendiente de cada cobrador.",
+      "portfolio": "Cartera",
+      "collected": "Recuperado",
+      "clients": "Clientes",
+      "credits": "Créditos"
+    },
+    "aging": {
+      "title": "Antigüedad de saldos",
+      "description": "Créditos activos según los días transcurridos desde su último pago.",
+      "current": "Al día",
+      "d1to30": "1–30 días",
+      "d31to60": "31–60 días",
+      "d60plus": "60+ días",
+      "credits": "créditos"
+    },
+    "atRisk": {
+      "title": "Cuentas en riesgo",
+      "description": "Créditos activos sin pago en más de 30 días.",
+      "lastPayment": "Último pago",
+      "daysLate": "Días sin pago",
+      "never": "Sin pagos"
+    }
+  },
+  "clients": {
+    "title": "Clientes",
+    "description": "Administre los clientes, su saldo y la ruta a la que pertenecen.",
+    "new": "Nuevo cliente",
+    "searchPlaceholder": "Buscar por nombre o DPI…",
+    "allRoutes": "Todas las rutas",
+    "allStatuses": "Todos los estados",
+    "summary": {
+      "total": "Total de clientes",
+      "active": "Activos",
+      "atRisk": "En riesgo",
+      "outstanding": "Saldo total"
+    },
+    "table": {
+      "client": "Cliente",
+      "commerce": "Comercio",
+      "route": "Ruta",
+      "collector": "Cobrador",
+      "balance": "Saldo",
+      "credits": "Créditos"
+    },
+    "detail": {
+      "credits": "Créditos",
+      "payments": "Pagos",
+      "profile": "Información del cliente",
+      "since": "Cliente desde",
+      "activeCredits": "Créditos activos",
+      "totalBalance": "Saldo pendiente",
+      "totalPaid": "Total pagado",
+      "noCredits": "Este cliente no tiene créditos registrados.",
+      "noPayments": "Este cliente no tiene pagos registrados."
+    },
+    "form": {
+      "createTitle": "Crear cliente",
+      "createDescription": "Registre un nuevo cliente y asígnelo a una ruta.",
+      "personal": "Datos personales",
+      "personalDescription": "Identificación del cliente.",
+      "contact": "Contacto",
+      "contactDescription": "Cómo lo ubicará el cobrador.",
+      "assignment": "Asignación",
+      "assignmentDescription": "Ruta y comercio al que pertenece el cliente.",
+      "save": "Guardar cliente",
+      "dpiHint": "13 dígitos, como aparece en el documento."
+    }
+  },
+  "credits": {
+    "title": "Créditos",
+    "description": "Créditos colocados, su saldo y estado de pago.",
+    "new": "Nuevo crédito",
+    "import": "Ingresar existente",
+    "searchPlaceholder": "Buscar por cliente o No. de tarjeta…",
+    "allStatuses": "Todos los estados",
+    "summary": {
+      "capital": "Capital colocado",
+      "outstanding": "Saldo por recuperar",
+      "active": "Créditos activos",
+      "atRisk": "En riesgo"
+    },
+    "atRiskHint": "Sin pago en más de 30 días",
+    "table": {
+      "code": "No. tarjeta",
+      "client": "Cliente",
+      "collector": "Cobrador",
+      "route": "Ruta",
+      "principal": "Capital",
+      "total": "Total a pagar",
+      "outstanding": "Saldo",
+      "payments": "Pagos",
+      "startDate": "Fecha inicio",
+      "lastPayment": "Último pago"
+    },
+    "detail": {
+      "title": "Detalle del crédito",
+      "disbursedOn": "Entregado el",
+      "principal": "Capital",
+      "interest": "Interés",
+      "total": "Total a pagar",
+      "outstanding": "Saldo",
+      "paid": "Pagado",
+      "progress": "Avance",
+      "paymentsMade": "{count} pagos aplicados",
+      "ledger": "Estado de cuenta",
+      "ledgerDescription": "Movimientos del crédito, del más reciente al más antiguo.",
+      "origination": "Entrega del crédito",
+      "payment": "Pago",
+      "void": "Anular",
+      "runningBalance": "Saldo",
+      "cancelledOn": "Cancelado el",
+      "daysToPayoff": "Pagado en {days} días"
+    },
+    "form": {
+      "createTitle": "Nuevo crédito",
+      "createDescription": "Registre un crédito nuevo para un cliente existente.",
+      "details": "Datos del crédito",
+      "detailsDescription": "El total a pagar se calcula con el {rate} de interés.",
+      "assignment": "Asignación",
+      "assignmentDescription": "Cliente y cobrador responsable.",
+      "code": "No. de tarjeta",
+      "principal": "Capital entregado",
+      "startDate": "Fecha de entrega",
+      "computed": "Total a pagar",
+      "computedHint": "Capital más {rate} de interés.",
+      "save": "Guardar crédito"
+    },
+    "importPage": {
+      "title": "Ingresar crédito existente",
+      "description": "Registre un crédito que ya está en la calle junto con los pagos que el cliente ya realizó.",
+      "history": "Pagos ya realizados",
+      "historyDescription": "Agregue cada pago en el orden en que se recibió; el saldo se recalcula automáticamente.",
+      "addPayment": "Agregar pago",
+      "remove": "Quitar",
+      "resulting": "Saldo resultante",
+      "save": "Guardar crédito e historial"
+    }
+  },
+  "collectors": {
+    "title": "Cobradores",
+    "description": "Personal de campo, sus rutas y su recuperación.",
+    "new": "Nuevo cobrador",
+    "searchPlaceholder": "Buscar cobrador…",
+    "summary": {
+      "total": "Total",
+      "active": "Activos",
+      "portfolio": "Cartera asignada",
+      "collected": "Recuperado"
+    },
+    "table": {
+      "collector": "Cobrador",
+      "routes": "Rutas",
+      "clients": "Clientes",
+      "credits": "Créditos",
+      "portfolio": "Cartera",
+      "collected": "Recuperado"
+    },
+    "detail": {
+      "profile": "Datos del cobrador",
+      "routes": "Rutas asignadas",
+      "credits": "Créditos a su cargo",
+      "closes": "Ingresos diarios recientes",
+      "noRoutes": "Este cobrador no tiene rutas asignadas.",
+      "noCredits": "Este cobrador no tiene créditos a su cargo.",
+      "noCloses": "Este cobrador no tiene ingresos registrados."
+    },
+    "form": {
+      "createTitle": "Nuevo cobrador",
+      "createDescription": "Registre un cobrador para asignarle rutas y créditos.",
+      "personal": "Datos personales",
+      "personalDescription": "Identificación del cobrador.",
+      "contact": "Contacto",
+      "contactDescription": "Datos para ubicarlo.",
+      "save": "Guardar cobrador"
+    }
+  },
+  "routes": {
+    "title": "Rutas",
+    "description": "Zonas de cobro y el cobrador responsable de cada una.",
+    "new": "Nueva ruta",
+    "searchPlaceholder": "Buscar ruta…",
+    "summary": {
+      "total": "Total de rutas",
+      "active": "Activas",
+      "clients": "Clientes",
+      "portfolio": "Cartera"
+    },
+    "table": {
+      "code": "Código",
+      "route": "Ruta",
+      "collector": "Cobrador",
+      "clients": "Clientes",
+      "credits": "Créditos activos",
+      "portfolio": "Cartera"
+    },
+    "detail": {
+      "profile": "Datos de la ruta",
+      "details": "Descripción",
+      "clients": "Clientes de la ruta",
+      "noClients": "Esta ruta no tiene clientes asignados."
+    },
+    "form": {
+      "createTitle": "Nueva ruta",
+      "createDescription": "Cree una zona de cobro y asígnele un cobrador.",
+      "details": "Datos de la ruta",
+      "detailsDescription": "Código, nombre y cobertura de la ruta.",
+      "code": "Código",
+      "name": "Nombre",
+      "notes": "Descripción",
+      "save": "Guardar ruta"
+    }
+  },
+  "payments": {
+    "title": "Pagos",
+    "description": "Todos los pagos aplicados a los créditos.",
+    "searchPlaceholder": "Buscar por cliente o No. de tarjeta…",
+    "allCollectors": "Todos los cobradores",
+    "summary": {
+      "today": "Recuperado hoy",
+      "count": "Pagos registrados",
+      "average": "Pago promedio",
+      "voided": "Anulados"
+    },
+    "table": {
+      "date": "Fecha",
+      "credit": "No. tarjeta",
+      "client": "Cliente",
+      "collector": "Cobrador",
+      "route": "Ruta",
+      "amount": "Pago",
+      "balance": "Saldo",
+      "receipt": "Recibo"
+    },
+    "record": {
+      "action": "Registrar pago",
+      "title": "Registrar pago",
+      "subtitle": "Crédito {credit} · {customer}",
+      "outstanding": "Saldo actual",
+      "amount": "Monto del pago",
+      "date": "Fecha del pago",
+      "remaining": "Saldo después del pago",
+      "overpay": "El pago no puede ser mayor al saldo pendiente.",
+      "cancel": "Cancelar",
+      "submit": "Aplicar pago"
+    },
+    "receipt": {
+      "title": "Recibo de pago",
+      "number": "Recibo No.",
+      "issuedTo": "Recibimos de",
+      "concept": "Concepto",
+      "conceptValue": "Abono al crédito {credit}",
+      "amount": "Monto recibido",
+      "previousBalance": "Saldo anterior",
+      "newBalance": "Saldo actual",
+      "collectedBy": "Recibido por",
+      "print": "Imprimir",
+      "footer": "Este recibo es válido únicamente con el sello de la empresa.",
+      "voided": "Este pago fue anulado."
+    }
+  },
+  "dailyClose": {
+    "title": "Ingreso diario",
+    "description": "Cierre de caja por cobrador: base entregada, recuperación del día y créditos colocados.",
+    "new": "Nuevo ingreso",
+    "form": {
+      "title": "Cierre del día",
+      "description": "Seleccione el cobrador y la fecha; luego registre los pagos recibidos.",
+      "collector": "Cobrador",
+      "date": "Fecha",
+      "base": "Base",
+      "baseHint": "Efectivo con el que salió el cobrador.",
+      "collected": "Recuperado",
+      "collectedHint": "Suma de los pagos ingresados.",
+      "disbursed": "Créditos colocados",
+      "disbursedHint": "Efectivo entregado en créditos nuevos.",
+      "surplus": "Excedente",
+      "surplusHint": "Efectivo devuelto sobre la base.",
+      "cash": "Efectivo a entregar",
+      "cashFormula": "(base + recuperado) − (colocado + excedente)",
+      "payments": "Pagos del día",
+      "paymentsDescription": "Ingrese el No. de tarjeta y el monto de cada pago recibido.",
+      "addPayment": "Agregar pago",
+      "remove": "Quitar",
+      "save": "Guardar ingreso"
+    },
+    "table": {
+      "date": "Fecha",
+      "collector": "Cobrador",
+      "base": "Base",
+      "collected": "Recuperado",
+      "disbursed": "Colocado",
+      "surplus": "Excedente",
+      "cash": "Efectivo"
+    },
+    "history": "Ingresos registrados"
+  },
+  "reports": {
+    "title": "Reportes",
+    "description": "Genere los reportes operativos en PDF.",
+    "generate": "Generar PDF",
+    "filters": "Filtros",
+    "recent": "Reportes recientes",
+    "recentEmpty": "Aún no se ha generado ningún reporte.",
+    "generatedBy": "Generado por",
+    "defs": {
+      "credits": {
+        "title": "Reporte de créditos",
+        "description": "Todos los créditos colocados con capital, total a pagar y saldo pendiente."
+      },
+      "customersByCollector": {
+        "title": "Clientes por cobrador",
+        "description": "Listado de clientes agrupado por cobrador y ruta."
+      },
+      "incomeByCollector": {
+        "title": "Ingresos por cobrador",
+        "description": "Pagos recibidos y cierres de caja resumidos por cobrador."
+      }
+    },
+    "filterLabels": {
+      "dateRange": "Rango de fechas",
+      "route": "Ruta",
+      "status": "Estado",
+      "collector": "Cobrador"
+    }
+  },
+  "admin": {
+    "title": "Administración",
+    "tabs": {
+      "users": "Usuarios",
+      "settings": "Ajustes"
+    },
+    "users": {
+      "title": "Usuarios",
+      "description": "Cuentas con acceso al sistema y su rol.",
+      "new": "Nuevo usuario",
+      "searchPlaceholder": "Buscar usuario…",
+      "table": {
+        "user": "Usuario",
+        "username": "Nombre de usuario",
+        "role": "Rol",
+        "linkedCollector": "Cobrador vinculado",
+        "lastActive": "Última actividad"
+      },
+      "dialog": {
+        "title": "Nuevo usuario",
+        "description": "Cree una cuenta y asígnele un rol.",
+        "password": "Contraseña",
+        "confirm": "Confirmar contraseña",
+        "role": "Rol",
+        "linkedCollector": "Cobrador vinculado",
+        "linkedHint": "Solo para cuentas de cobrador; limita lo que puede ver.",
+        "submit": "Crear usuario"
+      }
+    },
+    "settings": {
+      "title": "Ajustes",
+      "description": "Parámetros del negocio y preferencias de la consola.",
+      "business": "Parámetros del negocio",
+      "businessDescription": "Afectan el cálculo de todos los créditos nuevos.",
+      "interestRate": "Tasa de interés",
+      "interestRateHint": "Se aplica sobre el capital al crear el crédito.",
+      "goodRecordDays": "Días para buen record",
+      "goodRecordDaysHint": "Si el crédito se cancela después de estos días, se marca mal record.",
+      "currency": "Moneda",
+      "preferences": "Preferencias",
+      "preferencesDescription": "Ajustes de esta consola.",
+      "language": "Idioma",
+      "languageHint": "Cambia el idioma de toda la interfaz.",
+      "notifications": "Notificaciones por correo",
+      "notificationsHint": "Enviar el resumen diario de cobranza.",
+      "danger": "Zona sensible",
+      "dangerDescription": "Estas acciones afectan datos históricos."
+    }
+  },
+  "field": {
+    "collect": {
+      "title": "Ingresar pago",
+      "description": "Créditos activos de su ruta. Seleccione uno para registrar el pago.",
+      "searchPlaceholder": "Buscar cliente o No. de tarjeta…",
+      "empty": "No tiene créditos activos asignados."
+    },
+    "today": {
+      "title": "Pagos de hoy",
+      "description": "Pagos que ha registrado el día de hoy.",
+      "total": "Total recibido hoy",
+      "count": "Pagos",
+      "empty": "Aún no ha registrado pagos hoy."
+    }
   }
 }
