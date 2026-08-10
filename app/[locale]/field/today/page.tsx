@@ -4,7 +4,7 @@ import { AppShell } from '@/components/app-shell'
 import { PageHeader } from '@/components/page-header'
 import { StatusBadge } from '@/components/status-badge'
 import { SummaryStat } from '@/components/summary-stat'
-import { Button } from '@/components/ui/button'
+import { LinkButton } from '@/components/link-button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Table,
@@ -89,13 +89,13 @@ export default async function FieldTodayPage({ params }: PageProps<'/[locale]'>)
                         <StatusBadge status={row.voided ? 'voided' : 'posted'} />
                       </TableCell>
                       <TableCell className="pr-4 text-right">
-                        <Button
+                        <LinkButton
                           variant="ghost"
                           size="sm"
-                          render={<Link href={`/payments/${row.id}/receipt`} />}
-                        >
+                          href={`/payments/${row.id}/receipt`}
+                          >
                           {tPayments('table.receipt')}
-                        </Button>
+                        </LinkButton>
                       </TableCell>
                     </TableRow>
                   ))}

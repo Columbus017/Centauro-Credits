@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/page-header'
 import { SearchInput } from '@/components/search-input'
 import { StatusBadge } from '@/components/status-badge'
 import { SummaryStat } from '@/components/summary-stat'
-import { Button } from '@/components/ui/button'
+import { LinkButton } from '@/components/link-button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Table,
@@ -59,10 +59,10 @@ export default async function RoutesPage({ params }: PageProps<'/[locale]'>) {
         title={t('title')}
         description={t('description')}
         actions={
-          <Button size="lg" render={<Link href="/routes/new" />}>
+          <LinkButton size="lg" href="/routes/new">
             <Plus className="size-4" />
             {t('new')}
-          </Button>
+          </LinkButton>
         }
       />
 
@@ -118,13 +118,13 @@ export default async function RoutesPage({ params }: PageProps<'/[locale]'>) {
                       <StatusBadge status={row.route.active ? 'active' : 'inactive'} />
                     </TableCell>
                     <TableCell className="pr-4 text-right">
-                      <Button
+                      <LinkButton
                         variant="ghost"
                         size="sm"
-                        render={<Link href={`/routes/${row.route.id}`} />}
-                      >
+                        href={`/routes/${row.route.id}`}
+                        >
                         {tc('view')}
-                      </Button>
+                      </LinkButton>
                     </TableCell>
                   </TableRow>
                 ))}

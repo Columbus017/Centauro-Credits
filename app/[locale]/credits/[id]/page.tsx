@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/page-header'
 import { RecordPaymentDialog } from '@/components/record-payment-dialog'
 import { StatCard } from '@/components/stat-card'
 import { StatusBadge } from '@/components/status-badge'
+import { LinkButton } from '@/components/link-button'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -67,10 +68,10 @@ export default async function CreditDetailPage({
         breadcrumbs={[{ label: t('title'), href: '/credits' }, { label: credit.code }]}
         actions={
           <>
-            <Button variant="outline" size="lg" render={<Link href="/credits" />}>
+            <LinkButton variant="outline" size="lg" href="/credits">
               <ArrowLeft className="size-4" />
               {tc('back')}
-            </Button>
+            </LinkButton>
             <RecordPaymentDialog
               creditCode={credit.code}
               customerName={customerName}
@@ -146,7 +147,7 @@ export default async function CreditDetailPage({
               <TableHeader>
                 <TableRow>
                   <TableHead className="pl-4">{tc('date')}</TableHead>
-                  <TableHead>{tc('actions')}</TableHead>
+                  <TableHead>{t('detail.movement')}</TableHead>
                   <TableHead className="text-right">{tc('amount')}</TableHead>
                   <TableHead className="text-right">{t('detail.runningBalance')}</TableHead>
                   <TableHead>{tc('status')}</TableHead>
@@ -183,13 +184,13 @@ export default async function CreditDetailPage({
                     <TableCell className="pr-4 text-right">
                       {entry.kind === 'payment' && !entry.voided && (
                         <div className="flex justify-end gap-1">
-                          <Button
+                          <LinkButton
                             variant="ghost"
                             size="sm"
-                            render={<Link href={`/payments/${entry.id}/receipt`} />}
-                          >
+                            href={`/payments/${entry.id}/receipt`}
+                            >
                             {tPayments('table.receipt')}
-                          </Button>
+                          </LinkButton>
                           <Button variant="ghost" size="sm" className="text-destructive">
                             {t('detail.void')}
                           </Button>

@@ -3,7 +3,9 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { AppShell } from '@/components/app-shell'
 import { CreditAmountFields } from '@/components/credit-amount-fields'
 import { FormField } from '@/components/form-field'
+import { SelectField } from '@/components/select-field'
 import { PageHeader } from '@/components/page-header'
+import { LinkButton } from '@/components/link-button'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -13,14 +15,6 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Link } from '@/i18n/navigation'
 import { formatPercent } from '@/lib/format'
 import { collectors, customers, fullName, INTEREST_RATE } from '@/lib/mock-data'
 
@@ -43,9 +37,9 @@ export default async function NewCreditPage({ params }: PageProps<'/[locale]'>) 
         description={t('form.createDescription')}
         actions={
           <>
-            <Button variant="outline" size="lg" render={<Link href="/credits" />}>
+            <LinkButton variant="outline" size="lg" href="/credits">
               {tc('cancel')}
-            </Button>
+            </LinkButton>
             <Button size="lg">{t('form.save')}</Button>
           </>
         }
@@ -80,32 +74,22 @@ export default async function NewCreditPage({ params }: PageProps<'/[locale]'>) 
             </CardHeader>
             <CardContent className="space-y-5">
               <FormField label={tc('client')}>
-                <Select defaultValue={String(activeCustomers[0]?.id ?? '')}>
-                  <SelectTrigger className="h-10 w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {activeCustomers.map((customer) => (
-                      <SelectItem key={customer.id} value={String(customer.id)}>
-                        {fullName(customer)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SelectField
+                  className="h-10 w-full"
+                  options={activeCustomers.map((customer) => ({
+                    value: String(customer.id),
+                    label: fullName(customer),
+                  }))}
+                />
               </FormField>
               <FormField label={tc('collector')}>
-                <Select defaultValue={String(activeCollectors[0]?.id ?? '')}>
-                  <SelectTrigger className="h-10 w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {activeCollectors.map((collector) => (
-                      <SelectItem key={collector.id} value={String(collector.id)}>
-                        {fullName(collector)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SelectField
+                  className="h-10 w-full"
+                  options={activeCollectors.map((collector) => ({
+                    value: String(collector.id),
+                    label: fullName(collector),
+                  }))}
+                />
               </FormField>
             </CardContent>
           </Card>

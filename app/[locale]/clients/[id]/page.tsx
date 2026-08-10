@@ -6,7 +6,7 @@ import { AppShell } from '@/components/app-shell'
 import { PageHeader } from '@/components/page-header'
 import { StatCard } from '@/components/stat-card'
 import { StatusBadge } from '@/components/status-badge'
-import { Button } from '@/components/ui/button'
+import { LinkButton } from '@/components/link-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -74,10 +74,10 @@ export default async function ClientDetailPage({
         title={fullName(customer)}
         breadcrumbs={[{ label: t('title'), href: '/clients' }, { label: fullName(customer) }]}
         actions={
-          <Button variant="outline" size="lg" render={<Link href="/clients" />}>
+          <LinkButton variant="outline" size="lg" href="/clients">
             <ArrowLeft className="size-4" />
             {tc('back')}
-          </Button>
+          </LinkButton>
         }
       />
 

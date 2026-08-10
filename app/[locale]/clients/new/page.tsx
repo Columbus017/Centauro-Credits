@@ -2,7 +2,9 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { AppShell } from '@/components/app-shell'
 import { FormField } from '@/components/form-field'
+import { SelectField } from '@/components/select-field'
 import { PageHeader } from '@/components/page-header'
+import { LinkButton } from '@/components/link-button'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -12,15 +14,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Link } from '@/i18n/navigation'
 import { commerce, routes } from '@/lib/mock-data'
 
 export default async function NewClientPage({ params }: PageProps<'/[locale]'>) {
@@ -40,9 +34,9 @@ export default async function NewClientPage({ params }: PageProps<'/[locale]'>) 
         description={t('form.createDescription')}
         actions={
           <>
-            <Button variant="outline" size="lg" render={<Link href="/clients" />}>
+            <LinkButton variant="outline" size="lg" href="/clients">
               {tc('cancel')}
-            </Button>
+            </LinkButton>
             <Button size="lg">{t('form.save')}</Button>
           </>
         }
@@ -100,32 +94,22 @@ export default async function NewClientPage({ params }: PageProps<'/[locale]'>) 
             </CardHeader>
             <CardContent className="space-y-5">
               <FormField label={tc('route')}>
-                <Select defaultValue={String(activeRoutes[0]?.id ?? '')}>
-                  <SelectTrigger className="h-10 w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {activeRoutes.map((route) => (
-                      <SelectItem key={route.id} value={String(route.id)}>
-                        {route.code} · {route.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SelectField
+                  className="h-10 w-full"
+                  options={activeRoutes.map((route) => ({
+                    value: String(route.id),
+                    label: `${route.code} · ${route.name}`,
+                  }))}
+                />
               </FormField>
               <FormField label={tc('commerce')}>
-                <Select defaultValue={String(commerce[0]?.id ?? '')}>
-                  <SelectTrigger className="h-10 w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {commerce.map((business) => (
-                      <SelectItem key={business.id} value={String(business.id)}>
-                        {business.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SelectField
+                  className="h-10 w-full"
+                  options={commerce.map((business) => ({
+                    value: String(business.id),
+                    label: business.name,
+                  }))}
+                />
               </FormField>
             </CardContent>
           </Card>

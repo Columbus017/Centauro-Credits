@@ -228,6 +228,7 @@
       "paymentsMade": "{count} payments posted",
       "ledger": "Statement",
       "ledgerDescription": "Credit movements, newest first.",
+      "movement": "Movement",
       "origination": "Credit disbursed",
       "payment": "Payment",
       "void": "Void",

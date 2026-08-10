@@ -2,10 +2,9 @@ import { Landmark, ShieldCheck, TrendingUp } from 'lucide-react'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { ThemeToggle } from '@/components/theme-toggle'
-import { Button } from '@/components/ui/button'
+import { LinkButton } from '@/components/link-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Link } from '@/i18n/navigation'
 import { formatPercent, formatQCompact } from '@/lib/format'
 import { delinquencyRate, outstandingTotal } from '@/lib/mock-data'
 
@@ -97,9 +96,9 @@ export default async function LoginPage({ params }: PageProps<'/[locale]'>) {
               />
             </div>
 
-            <Button size="lg" className="h-10 w-full" render={<Link href="/" />}>
+            <LinkButton size="lg" className="h-10 w-full" href="/">
               {t('submit')}
-            </Button>
+            </LinkButton>
           </form>
         </div>
       </div>

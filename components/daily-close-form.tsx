@@ -5,6 +5,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { FormField } from '@/components/form-field'
+import { SelectField } from '@/components/select-field'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -14,13 +15,6 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { formatQCents } from '@/lib/format'
 
 type PaymentDraft = { key: number; code: string; amount: string }
@@ -86,18 +80,13 @@ export function DailyCloseForm({
           </CardHeader>
           <CardContent className="grid gap-5 sm:grid-cols-2">
             <FormField label={t('collector')}>
-              <Select defaultValue={String(collectors[0]?.id ?? '')}>
-                <SelectTrigger className="h-10 w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {collectors.map((collector) => (
-                    <SelectItem key={collector.id} value={String(collector.id)}>
-                      {collector.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SelectField
+                className="h-10 w-full"
+                options={collectors.map((collector) => ({
+                  value: String(collector.id),
+                  label: collector.name,
+                }))}
+              />
             </FormField>
             <FormField label={t('date')} htmlFor="close-date">
               <Input id="close-date" type="date" className="h-10" />

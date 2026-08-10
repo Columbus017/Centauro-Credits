@@ -6,12 +6,9 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   Legend,
   Line,
   LineChart,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -94,7 +91,7 @@ export function PortfolioTrendChart() {
         <XAxis dataKey="label" {...axisProps} dy={6} />
         <YAxis
           {...axisProps}
-          width={56}
+          width={64}
           tickFormatter={(value) => formatQCompact(Number(value), locale)}
         />
         <Tooltip
@@ -166,7 +163,7 @@ export function CashFlowChart() {
         <XAxis dataKey="label" {...axisProps} dy={6} />
         <YAxis
           {...axisProps}
-          width={56}
+          width={64}
           tickFormatter={(value) => formatQCompact(Number(value), locale)}
         />
         <Tooltip
@@ -223,7 +220,7 @@ export function CollectorPerformanceChart() {
         <XAxis dataKey="label" {...axisProps} dy={6} interval={0} />
         <YAxis
           {...axisProps}
-          width={56}
+          width={64}
           tickFormatter={(value) => formatQCompact(Number(value), locale)}
         />
         <Tooltip
@@ -268,42 +265,32 @@ export function AgingChart() {
     amount: bucket.amount,
   }))
 
-  return (
-    <div className="flex flex-col items-center gap-4 sm:flex-row">
-      <ResponsiveContainer width="100%" height={200} className="max-w-56">
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="value"
-            nameKey="label"
-            innerRadius={52}
-            outerRadius={80}
-            paddingAngle={2}
-            strokeWidth={0}
-          >
-            {data.map((entry) => (
-              <Cell key={entry.key} fill={agingColors[entry.key]} />
-            ))}
-          </Pie>
-          <Tooltip
-            content={({ active, payload }) =>
-              active && payload?.length ? (
-                <TooltipBox
-                  rows={[
-                    {
-                      name: String(payload[0].name),
-                      value: `${formatNumber(Number(payload[0].value), locale)} ${t('credits')}`,
-                      color: payload[0].payload.fill,
-                    },
-                  ]}
-                />
-              ) : null
-            }
-          />
-        </PieChart>
-      </ResponsiveContainer>
+  const totalCredits = data.reduce((sum, entry) => sum + entry.value, 0)
 
-      <ul className="w-full flex-1 space-y-2">
+  return (
+    <div className="space-y-4">
+      {/*
+        A single stacked proportion bar rather than a donut: the buckets are an
+        ordered aging sequence, which reads better left-to-right, and it keeps
+        the whole card legible at narrow widths.
+      */}
+      <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
+        {data.map((entry) =>
+          entry.value === 0 ? null : (
+            <div
+              key={entry.key}
+              className="h-full first:rounded-l-full last:rounded-r-full"
+              style={{
+                width: `${(entry.value / totalCredits) * 100}%`,
+                background: agingColors[entry.key],
+              }}
+              title={`${entry.label}: ${formatNumber(entry.value, locale)} ${t('credits')}`}
+            />
+          ),
+        )}
+      </div>
+
+      <ul className="space-y-2">
         {data.map((entry) => (
           <li key={entry.key} className="flex items-center gap-2 text-sm">
             <span

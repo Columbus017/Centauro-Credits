@@ -2,7 +2,9 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { AppShell } from '@/components/app-shell'
 import { FormField } from '@/components/form-field'
+import { SelectField } from '@/components/select-field'
 import { PageHeader } from '@/components/page-header'
+import { LinkButton } from '@/components/link-button'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -12,15 +14,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Link } from '@/i18n/navigation'
 import { collectors, fullName } from '@/lib/mock-data'
 
 export default async function NewRoutePage({ params }: PageProps<'/[locale]'>) {
@@ -40,9 +34,9 @@ export default async function NewRoutePage({ params }: PageProps<'/[locale]'>) {
         description={t('form.createDescription')}
         actions={
           <>
-            <Button variant="outline" size="lg" render={<Link href="/routes" />}>
+            <LinkButton variant="outline" size="lg" href="/routes">
               {tc('cancel')}
-            </Button>
+            </LinkButton>
             <Button size="lg">{t('form.save')}</Button>
           </>
         }
@@ -62,18 +56,13 @@ export default async function NewRoutePage({ params }: PageProps<'/[locale]'>) {
               <Input id="name" placeholder="Zona 1 Centro" className="h-10" />
             </FormField>
             <FormField label={tc('collector')} className="sm:col-span-2">
-              <Select defaultValue={String(activeCollectors[0]?.id ?? '')}>
-                <SelectTrigger className="h-10 w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeCollectors.map((collector) => (
-                    <SelectItem key={collector.id} value={String(collector.id)}>
-                      {fullName(collector)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SelectField
+                className="h-10 w-full"
+                options={activeCollectors.map((collector) => ({
+                  value: String(collector.id),
+                  label: fullName(collector),
+                }))}
+              />
             </FormField>
             <FormField label={t('form.notes')} htmlFor="details" className="sm:col-span-2">
               <Textarea id="details" rows={3} />

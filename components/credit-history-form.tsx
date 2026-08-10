@@ -5,6 +5,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { FormField } from '@/components/form-field'
+import { SelectField } from '@/components/select-field'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -14,13 +15,6 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { formatPercent, formatQCents } from '@/lib/format'
 
 type PaymentDraft = { key: number; date: string; amount: string }
@@ -198,32 +192,22 @@ export function CreditHistoryForm({
           </CardHeader>
           <CardContent className="space-y-5">
             <FormField label={tc('client')}>
-              <Select defaultValue={String(customers[0]?.id ?? '')}>
-                <SelectTrigger className="h-10 w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map((customer) => (
-                    <SelectItem key={customer.id} value={String(customer.id)}>
-                      {customer.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SelectField
+                className="h-10 w-full"
+                options={customers.map((customer) => ({
+                  value: String(customer.id),
+                  label: customer.name,
+                }))}
+              />
             </FormField>
             <FormField label={tc('collector')}>
-              <Select defaultValue={String(collectors[0]?.id ?? '')}>
-                <SelectTrigger className="h-10 w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {collectors.map((collector) => (
-                    <SelectItem key={collector.id} value={String(collector.id)}>
-                      {collector.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SelectField
+                className="h-10 w-full"
+                options={collectors.map((collector) => ({
+                  value: String(collector.id),
+                  label: collector.name,
+                }))}
+              />
             </FormField>
 
             <div className="flex items-center justify-between border-t border-border pt-4">

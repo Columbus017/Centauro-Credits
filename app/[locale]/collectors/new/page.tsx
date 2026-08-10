@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { AppShell } from '@/components/app-shell'
 import { FormField } from '@/components/form-field'
 import { PageHeader } from '@/components/page-header'
+import { LinkButton } from '@/components/link-button'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -13,7 +14,6 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Link } from '@/i18n/navigation'
 
 export default async function NewCollectorPage({ params }: PageProps<'/[locale]'>) {
   const { locale } = await params
@@ -33,9 +33,9 @@ export default async function NewCollectorPage({ params }: PageProps<'/[locale]'
         description={t('form.createDescription')}
         actions={
           <>
-            <Button variant="outline" size="lg" render={<Link href="/collectors" />}>
+            <LinkButton variant="outline" size="lg" href="/collectors">
               {tc('cancel')}
-            </Button>
+            </LinkButton>
             <Button size="lg">{t('form.save')}</Button>
           </>
         }

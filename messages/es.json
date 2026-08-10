@@ -228,6 +228,7 @@
       "paymentsMade": "{count} pagos aplicados",
       "ledger": "Estado de cuenta",
       "ledgerDescription": "Movimientos del crédito, del más reciente al más antiguo.",
+      "movement": "Movimiento",
       "origination": "Entrega del crédito",
       "payment": "Pago",
       "void": "Anular",

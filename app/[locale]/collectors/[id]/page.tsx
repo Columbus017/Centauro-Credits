@@ -6,7 +6,7 @@ import { AppShell } from '@/components/app-shell'
 import { PageHeader } from '@/components/page-header'
 import { StatCard } from '@/components/stat-card'
 import { StatusBadge } from '@/components/status-badge'
-import { Button } from '@/components/ui/button'
+import { LinkButton } from '@/components/link-button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -77,10 +77,10 @@ export default async function CollectorDetailPage({
           { label: fullName(collector) },
         ]}
         actions={
-          <Button variant="outline" size="lg" render={<Link href="/collectors" />}>
+          <LinkButton variant="outline" size="lg" href="/collectors">
             <ArrowLeft className="size-4" />
             {tc('back')}
-          </Button>
+          </LinkButton>
         }
       />
 

@@ -4,17 +4,11 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { AppShell } from '@/components/app-shell'
 import { PageHeader } from '@/components/page-header'
 import { SearchInput } from '@/components/search-input'
+import { SelectField } from '@/components/select-field'
 import { StatusBadge } from '@/components/status-badge'
 import { SummaryStat } from '@/components/summary-stat'
-import { Button } from '@/components/ui/button'
+import { LinkButton } from '@/components/link-button'
 import { Card, CardContent } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -52,14 +46,14 @@ export default async function CreditsPage({ params }: PageProps<'/[locale]'>) {
         description={t('description')}
         actions={
           <>
-            <Button variant="outline" size="lg" render={<Link href="/credits/import" />}>
+            <LinkButton variant="outline" size="lg" href="/credits/import">
               <History className="size-4" />
               {t('import')}
-            </Button>
-            <Button size="lg" render={<Link href="/credits/new" />}>
+            </LinkButton>
+            <LinkButton size="lg" href="/credits/new">
               <Plus className="size-4" />
               {t('new')}
-            </Button>
+            </LinkButton>
           </>
         }
       />
@@ -78,17 +72,16 @@ export default async function CreditsPage({ params }: PageProps<'/[locale]'>) {
       <Card className="py-0">
         <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center">
           <SearchInput placeholder={t('searchPlaceholder')} />
-          <Select defaultValue="all">
-            <SelectTrigger size="default" className="h-9 min-w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('allStatuses')}</SelectItem>
-              <SelectItem value="active">{tStatus('active')}</SelectItem>
-              <SelectItem value="cancelled">{tStatus('cancelled')}</SelectItem>
-              <SelectItem value="badRecord">{tStatus('badRecord')}</SelectItem>
-            </SelectContent>
-          </Select>
+          <SelectField
+            size="default"
+            className="h-9 min-w-40"
+            options={[
+              { value: 'all', label: t('allStatuses') },
+              { value: 'active', label: tStatus('active') },
+              { value: 'cancelled', label: tStatus('cancelled') },
+              { value: 'badRecord', label: tStatus('badRecord') },
+            ]}
+          />
         </div>
 
         <CardContent className="px-0">

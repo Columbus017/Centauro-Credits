@@ -35,15 +35,26 @@ export function LocaleSwitcher() {
     })
   }
 
+  // `items` is what makes the trigger show "Español" rather than the raw "es".
+  const items = routing.locales.map((option) => ({
+    value: option,
+    label: labels[option],
+  }))
+
   return (
-    <Select value={locale} onValueChange={onChange} disabled={isPending}>
+    <Select
+      items={items}
+      value={locale}
+      onValueChange={onChange}
+      disabled={isPending}
+    >
       <SelectTrigger className="h-10 w-full">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {routing.locales.map((option) => (
-          <SelectItem key={option} value={option}>
-            {labels[option]}
+        {items.map((item) => (
+          <SelectItem key={item.value} value={item.value}>
+            {item.label}
           </SelectItem>
         ))}
       </SelectContent>

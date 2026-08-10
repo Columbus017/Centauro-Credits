@@ -4,8 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { AppShell } from '@/components/app-shell'
 import { PrintButton } from '@/components/print-button'
-import { Button } from '@/components/ui/button'
-import { Link } from '@/i18n/navigation'
+import { LinkButton } from '@/components/link-button'
 import { routing } from '@/i18n/routing'
 import { formatDate, formatQCents } from '@/lib/format'
 import { ledgerEntries, paymentById } from '@/lib/mock-data'
@@ -45,10 +44,10 @@ export default async function ReceiptPage({
   return (
     <AppShell title={t('receipt.title')}>
       <div className="no-print mb-6 flex items-center justify-between">
-        <Button variant="outline" size="lg" render={<Link href="/payments" />}>
+        <LinkButton variant="outline" size="lg" href="/payments">
           <ArrowLeft className="size-4" />
           {tc('back')}
-        </Button>
+        </LinkButton>
         <PrintButton />
       </div>
 

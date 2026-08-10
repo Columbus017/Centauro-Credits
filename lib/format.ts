@@ -2,40 +2,60 @@
 // read by Spanish-speaking staff. These helpers are locale-aware so the same
 // screens render correctly under `/en` without duplicating markup.
 
-const GTQ = { style: 'currency', currency: 'GTQ' } as const
+// `narrowSymbol` keeps the familiar `Q` in both locales; the default display
+// renders GTQ as the literal "GTQ" under `en`, which no operator here reads.
+const GTQ = {
+  style: 'currency',
+  currency: 'GTQ',
+  currencyDisplay: 'narrowSymbol',
+} as const
 
-/** `Q1,234` — whole quetzales, for KPI tiles and chart axes. */
-export function formatQ(value: number, locale = 'es-GT') {
-  return new Intl.NumberFormat(locale, {
+/**
+ * The app's locales are the bare `es` / `en` used in URLs, but formatting must
+ * be regional: plain `es` is Spain, which renders `24.450 GTQ` instead of
+ * Guatemala's `Q24,450.00`. Always resolve before handing a locale to Intl.
+ */
+export function intlLocale(locale = 'es') {
+  if (locale.includes('-')) return locale
+  return locale === 'en' ? 'en-US' : 'es-GT'
+}
+
+/** `Q1,234` — whole quetzales, for KPI tiles and summary strips. */
+export function formatQ(value: number, locale?: string) {
+  return new Intl.NumberFormat(intlLocale(locale), {
     ...GTQ,
     maximumFractionDigits: 0,
   }).format(value)
 }
 
 /** `Q1,234.50` — the ledger and anything that must reconcile to the cent. */
-export function formatQCents(value: number, locale = 'es-GT') {
-  return new Intl.NumberFormat(locale, {
+export function formatQCents(value: number, locale?: string) {
+  return new Intl.NumberFormat(intlLocale(locale), {
     ...GTQ,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value)
 }
 
-/** Compact form for chart axes, where `Q128,400` is too wide to fit. */
-export function formatQCompact(value: number, locale = 'es-GT') {
-  return new Intl.NumberFormat(locale, {
-    ...GTQ,
+/**
+ * `Q45 mil` — chart axes, where the full figure never fits. Currency style is
+ * deliberately avoided here: compact currency produces long words that get
+ * clipped by the axis width.
+ */
+export function formatQCompact(value: number, locale?: string) {
+  const compact = new Intl.NumberFormat(intlLocale(locale), {
     notation: 'compact',
-    maximumFractionDigits: 1,
+    maximumFractionDigits: 0,
   }).format(value)
+  return `Q${compact}`
 }
 
-export function formatNumber(value: number, locale = 'es-GT') {
-  return new Intl.NumberFormat(locale).format(value)
+export function formatNumber(value: number, locale?: string) {
+  return new Intl.NumberFormat(intlLocale(locale)).format(value)
 }
 
-export function formatPercent(value: number, locale = 'es-GT') {
-  return new Intl.NumberFormat(locale, {
+export function formatPercent(value: number, locale?: string) {
+  return new Intl.NumberFormat(intlLocale(locale), {
     style: 'percent',
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
@@ -53,9 +73,9 @@ function parseISODate(iso: string) {
 }
 
 /** `14 ene 2024` */
-export function formatDate(iso: string, locale = 'es-GT') {
+export function formatDate(iso: string, locale?: string) {
   if (!iso) return '—'
-  return new Intl.DateTimeFormat(locale, {
+  return new Intl.DateTimeFormat(intlLocale(locale), {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -63,9 +83,9 @@ export function formatDate(iso: string, locale = 'es-GT') {
 }
 
 /** `14/01/2024` — for dense tables where the long form wraps. */
-export function formatDateShort(iso: string, locale = 'es-GT') {
+export function formatDateShort(iso: string, locale?: string) {
   if (!iso) return '—'
-  return new Intl.DateTimeFormat(locale, {
+  return new Intl.DateTimeFormat(intlLocale(locale), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -73,9 +93,9 @@ export function formatDateShort(iso: string, locale = 'es-GT') {
 }
 
 /** `ene` — short month name from a `YYYY-MM` key, for chart axes. */
-export function formatMonth(yearMonth: string, locale = 'es-GT') {
+export function formatMonth(yearMonth: string, locale?: string) {
   const [year, month] = yearMonth.split('-').map(Number)
-  return new Intl.DateTimeFormat(locale, { month: 'short' }).format(
+  return new Intl.DateTimeFormat(intlLocale(locale), { month: 'short' }).format(
     new Date(year, month - 1, 1),
   )
 }

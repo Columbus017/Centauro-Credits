@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/page-header'
 import { SearchInput } from '@/components/search-input'
 import { StatusBadge } from '@/components/status-badge'
 import { SummaryStat } from '@/components/summary-stat'
-import { Button } from '@/components/ui/button'
+import { LinkButton } from '@/components/link-button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Table,
@@ -69,10 +69,10 @@ export default async function CollectorsPage({ params }: PageProps<'/[locale]'>)
         title={t('title')}
         description={t('description')}
         actions={
-          <Button size="lg" render={<Link href="/collectors/new" />}>
+          <LinkButton size="lg" href="/collectors/new">
             <Plus className="size-4" />
             {t('new')}
-          </Button>
+          </LinkButton>
         }
       />
 
@@ -145,13 +145,13 @@ export default async function CollectorsPage({ params }: PageProps<'/[locale]'>)
                       <StatusBadge status={row.collector.active ? 'active' : 'inactive'} />
                     </TableCell>
                     <TableCell className="pr-4 text-right">
-                      <Button
+                      <LinkButton
                         variant="ghost"
                         size="sm"
-                        render={<Link href={`/collectors/${row.collector.id}`} />}
-                      >
+                        href={`/collectors/${row.collector.id}`}
+                        >
                         {tc('view')}
-                      </Button>
+                      </LinkButton>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -3,8 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { AppShell } from '@/components/app-shell'
 import { CreditHistoryForm } from '@/components/credit-history-form'
 import { PageHeader } from '@/components/page-header'
-import { Button } from '@/components/ui/button'
-import { Link } from '@/i18n/navigation'
+import { LinkButton } from '@/components/link-button'
 import { collectors, customers, fullName, INTEREST_RATE } from '@/lib/mock-data'
 
 export default async function ImportCreditPage({ params }: PageProps<'/[locale]'>) {
@@ -28,9 +27,9 @@ export default async function ImportCreditPage({ params }: PageProps<'/[locale]'
         title={t('importPage.title')}
         description={t('importPage.description')}
         actions={
-          <Button variant="outline" size="lg" render={<Link href="/credits" />}>
+          <LinkButton variant="outline" size="lg" href="/credits">
             {tc('cancel')}
-          </Button>
+          </LinkButton>
         }
       />
 

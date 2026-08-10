@@ -3,17 +3,11 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { AppShell } from '@/components/app-shell'
 import { PageHeader } from '@/components/page-header'
 import { SearchInput } from '@/components/search-input'
+import { SelectField } from '@/components/select-field'
 import { StatusBadge } from '@/components/status-badge'
 import { SummaryStat } from '@/components/summary-stat'
-import { Button } from '@/components/ui/button'
+import { LinkButton } from '@/components/link-button'
 import { Card, CardContent } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -64,19 +58,17 @@ export default async function PaymentsPage({ params }: PageProps<'/[locale]'>) {
       <Card className="py-0">
         <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center">
           <SearchInput placeholder={t('searchPlaceholder')} />
-          <Select defaultValue="all">
-            <SelectTrigger size="default" className="h-9 min-w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('allCollectors')}</SelectItem>
-              {collectors.map((collector) => (
-                <SelectItem key={collector.id} value={String(collector.id)}>
-                  {fullName(collector)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SelectField
+            size="default"
+            className="h-9 min-w-44"
+            options={[
+              { value: 'all', label: t('allCollectors') },
+              ...collectors.map((collector) => ({
+                value: String(collector.id),
+                label: fullName(collector),
+              })),
+            ]}
+          />
         </div>
 
         <CardContent className="px-0">
@@ -120,13 +112,13 @@ export default async function PaymentsPage({ params }: PageProps<'/[locale]'>) {
                       <StatusBadge status={row.voided ? 'voided' : 'posted'} />
                     </TableCell>
                     <TableCell className="pr-4 text-right">
-                      <Button
+                      <LinkButton
                         variant="ghost"
                         size="sm"
-                        render={<Link href={`/payments/${row.id}/receipt`} />}
-                      >
+                        href={`/payments/${row.id}/receipt`}
+                        >
                         {t('table.receipt')}
-                      </Button>
+                      </LinkButton>
                     </TableCell>
                   </TableRow>
                 ))}

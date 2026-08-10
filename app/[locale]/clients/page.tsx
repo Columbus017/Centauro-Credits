@@ -4,17 +4,11 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { AppShell } from '@/components/app-shell'
 import { PageHeader } from '@/components/page-header'
 import { SearchInput } from '@/components/search-input'
+import { SelectField } from '@/components/select-field'
 import { StatusBadge } from '@/components/status-badge'
 import { SummaryStat } from '@/components/summary-stat'
-import { Button } from '@/components/ui/button'
+import { LinkButton } from '@/components/link-button'
 import { Card, CardContent } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -44,6 +38,7 @@ export default async function ClientsPage({ params }: PageProps<'/[locale]'>) {
 
   const t = await getTranslations('clients')
   const tc = await getTranslations('common')
+  const tStatus = await getTranslations('status')
 
   const rows = customers.map((customer) => {
     const route = routeById(customer.routeId)
@@ -72,10 +67,10 @@ export default async function ClientsPage({ params }: PageProps<'/[locale]'>) {
         title={t('title')}
         description={t('description')}
         actions={
-          <Button render={<Link href="/clients/new" />} size="lg">
+          <LinkButton size="lg" href="/clients/new">
             <Plus className="size-4" />
             {t('new')}
-          </Button>
+          </LinkButton>
         }
       />
 
@@ -94,28 +89,26 @@ export default async function ClientsPage({ params }: PageProps<'/[locale]'>) {
         <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center">
           <SearchInput placeholder={t('searchPlaceholder')} />
           <div className="flex items-center gap-2">
-            <Select defaultValue="all">
-              <SelectTrigger size="default" className="h-9 min-w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('allRoutes')}</SelectItem>
-                {routes.map((route) => (
-                  <SelectItem key={route.id} value={String(route.id)}>
-                    {route.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select defaultValue="all">
-              <SelectTrigger size="default" className="h-9 min-w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('allStatuses')}</SelectItem>
-                <SelectItem value="active">{tc('status')}</SelectItem>
-              </SelectContent>
-            </Select>
+            <SelectField
+              size="default"
+              className="h-9 min-w-40"
+              options={[
+                { value: 'all', label: t('allRoutes') },
+                ...routes.map((route) => ({
+                  value: String(route.id),
+                  label: route.name,
+                })),
+              ]}
+            />
+            <SelectField
+              size="default"
+              className="h-9 min-w-36"
+              options={[
+                { value: 'all', label: t('allStatuses') },
+                { value: 'active', label: tStatus('active') },
+                { value: 'inactive', label: tStatus('inactive') },
+              ]}
+            />
           </div>
         </div>
 
@@ -169,13 +162,13 @@ export default async function ClientsPage({ params }: PageProps<'/[locale]'>) {
                       <StatusBadge status={row.customer.active ? 'active' : 'inactive'} />
                     </TableCell>
                     <TableCell className="pr-4 text-right">
-                      <Button
+                      <LinkButton
                         variant="ghost"
                         size="sm"
-                        render={<Link href={`/clients/${row.customer.id}`} />}
-                      >
+                        href={`/clients/${row.customer.id}`}
+                        >
                         {tc('view')}
-                      </Button>
+                      </LinkButton>
                     </TableCell>
                   </TableRow>
                 ))}
