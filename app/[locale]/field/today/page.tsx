@@ -17,20 +17,19 @@ import {
 import { Link } from '@/i18n/navigation'
 import { formatNumber, formatQ, formatQCents } from '@/lib/format'
 import { creditsForCollector, paymentRows } from '@/lib/mock-data'
-
-/** The signed-in collector; replaced by the session in Phase 3. */
-const SIGNED_IN_COLLECTOR_ID = 1
+import { requireCollector } from '@/lib/session'
 
 export default async function FieldTodayPage({ params }: PageProps<'/[locale]'>) {
   const { locale } = await params
   setRequestLocale(locale)
+  const { collectorId } = await requireCollector()
 
   const t = await getTranslations('field.today')
   const tc = await getTranslations('common')
   const tPayments = await getTranslations('payments')
 
   const ownCreditIds = new Set(
-    creditsForCollector(SIGNED_IN_COLLECTOR_ID).map((credit) => credit.id),
+    creditsForCollector(collectorId).map((credit) => credit.id),
   )
   const mine = paymentRows().filter((row) => ownCreditIds.has(row.creditId))
 
@@ -42,7 +41,7 @@ export default async function FieldTodayPage({ params }: PageProps<'/[locale]'>)
     .reduce((sum, row) => sum + row.amount, 0)
 
   return (
-    <AppShell title={t('title')} role="collector" userName="Carlos Mejía">
+    <AppShell title={t('title')}>
       <PageHeader title={t('title')} description={t('description')} />
 
       <div className="mb-5 grid grid-cols-2 gap-4">

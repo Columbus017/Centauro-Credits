@@ -16,10 +16,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { collectorById, collectors, fullName, users } from '@/lib/mock-data'
+import { requireAdmin } from '@/lib/session'
 
 export default async function AdminUsersPage({ params }: PageProps<'/[locale]'>) {
   const { locale } = await params
   setRequestLocale(locale)
+  await requireAdmin()
 
   const t = await getTranslations('admin.users')
   const tc = await getTranslations('common')

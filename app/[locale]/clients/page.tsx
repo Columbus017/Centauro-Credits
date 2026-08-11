@@ -31,10 +31,12 @@ import {
   routeById,
   routes,
 } from '@/lib/mock-data'
+import { requireAdmin } from '@/lib/session'
 
 export default async function ClientsPage({ params }: PageProps<'/[locale]'>) {
   const { locale } = await params
   setRequestLocale(locale)
+  await requireAdmin()
 
   const t = await getTranslations('clients')
   const tc = await getTranslations('common')

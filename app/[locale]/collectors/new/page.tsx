@@ -14,10 +14,12 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { requireAdmin } from '@/lib/session'
 
 export default async function NewCollectorPage({ params }: PageProps<'/[locale]'>) {
   const { locale } = await params
   setRequestLocale(locale)
+  await requireAdmin()
 
   const t = await getTranslations('collectors')
   const tc = await getTranslations('common')

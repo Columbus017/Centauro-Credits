@@ -26,10 +26,12 @@ import {
   ledgerEntries,
   routes,
 } from '@/lib/mock-data'
+import { requireAdmin } from '@/lib/session'
 
 export default async function CollectorsPage({ params }: PageProps<'/[locale]'>) {
   const { locale } = await params
   setRequestLocale(locale)
+  await requireAdmin()
 
   const t = await getTranslations('collectors')
   const tc = await getTranslations('common')

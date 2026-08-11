@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 import { authConfig } from './lib/auth.config'
-import { canAccess, isPublicPath, roleHome, stripLocale } from './lib/roles'
+import { canAccess, DENIED_PATH, isPublicPath, roleHome, stripLocale } from './lib/roles'
 import { routing } from './i18n/routing'
 
 // Next 16 renamed the `middleware` file convention to `proxy`; next-intl still
@@ -48,17 +48,28 @@ export default auth((request) => {
     return NextResponse.redirect(localized(request, '/login'))
   }
 
+  const home = roleHome(user.role)
+
   // A signed-in user has no use for the login screen.
   if (isPublicPath(path)) {
-    return NextResponse.redirect(localized(request, roleHome(user.role)))
+    return NextResponse.redirect(localized(request, home))
+  }
+
+  // `/` is the dashboard, which is an admin screen — but it is also what "the
+  // app" means to anyone who typed the bare host or just signed in, so a
+  // collector is shown their own first screen rather than a 403.
+  if (path === '/' && home !== '/') {
+    return NextResponse.redirect(localized(request, home))
   }
 
   if (!canAccess(user.role, path)) {
-    // Rewritten, not redirected: the URL the user typed keeps showing, and
-    // `/forbidden` calls `forbidden()` so the response really is a 403 rather
+    // Rewritten, not redirected: the URL the user asked for keeps showing, and
+    // the target calls `forbidden()`, so the response really is a 403 rather
     // than a 200 that says "no".
     const locale = localeOf(request.nextUrl.pathname)
-    return NextResponse.rewrite(new URL(`/${locale}/forbidden`, request.nextUrl))
+    return NextResponse.rewrite(
+      new URL(`/${locale}${DENIED_PATH}`, request.nextUrl),
+    )
   }
 
   return intlProxy(request)

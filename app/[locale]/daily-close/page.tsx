@@ -15,10 +15,12 @@ import {
 import { Link } from '@/i18n/navigation'
 import { formatDate, formatQ } from '@/lib/format'
 import { closeCash, collectorById, collectors, dailyCloses, fullName } from '@/lib/mock-data'
+import { requireAdmin } from '@/lib/session'
 
 export default async function DailyClosePage({ params }: PageProps<'/[locale]'>) {
   const { locale } = await params
   setRequestLocale(locale)
+  await requireAdmin()
 
   const t = await getTranslations('dailyClose')
 

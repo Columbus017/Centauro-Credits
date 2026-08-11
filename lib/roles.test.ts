@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { canAccess, isPublicPath, roleHome, stripLocale } from './roles'
+import { canAccess, DENIED_PATH, isPublicPath, roleHome, stripLocale } from './roles'
 
 describe('stripLocale', () => {
   it('leaves the unprefixed default locale alone', () => {
@@ -81,8 +81,8 @@ describe('canAccess as collector', () => {
     expect(canAccess('collector', '/payments/40/receipt/x')).toBe(false)
   })
 
-  it('allows the 403 page itself, so a denial does not loop', () => {
-    expect(canAccess('collector', '/forbidden')).toBe(true)
+  it('allows the route a denial is rewritten to, so denial does not loop', () => {
+    expect(canAccess('collector', DENIED_PATH)).toBe(true)
   })
 })
 

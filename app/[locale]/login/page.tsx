@@ -2,9 +2,7 @@ import { Landmark, ShieldCheck, TrendingUp } from 'lucide-react'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { ThemeToggle } from '@/components/theme-toggle'
-import { LinkButton } from '@/components/link-button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { LoginForm } from '@/components/login-form'
 import { formatPercent, formatQCompact } from '@/lib/format'
 import { delinquencyRate, outstandingTotal } from '@/lib/mock-data'
 
@@ -76,30 +74,7 @@ export default async function LoginPage({ params }: PageProps<'/[locale]'>) {
           <h1 className="text-2xl font-semibold tracking-tight">{t('title')}</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">{t('subtitle')}</p>
 
-          <form className="mt-8 space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="username">{t('username')}</Label>
-              <Input id="username" name="username" autoComplete="username" className="h-10" />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">{t('password')}</Label>
-                <span className="text-xs text-muted-foreground">{t('forgot')}</span>
-              </div>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                className="h-10"
-              />
-            </div>
-
-            <LinkButton size="lg" className="h-10 w-full" href="/">
-              {t('submit')}
-            </LinkButton>
-          </form>
+          <LoginForm />
         </div>
       </div>
     </div>

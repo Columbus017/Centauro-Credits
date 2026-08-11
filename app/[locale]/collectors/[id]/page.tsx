@@ -30,6 +30,7 @@ import {
   ledgerEntries,
   routes,
 } from '@/lib/mock-data'
+import { requireAdmin } from '@/lib/session'
 
 export function generateStaticParams() {
   return routing.locales.flatMap((locale) =>
@@ -42,6 +43,7 @@ export default async function CollectorDetailPage({
 }: PageProps<'/[locale]/collectors/[id]'>) {
   const { locale, id } = await params
   setRequestLocale(locale)
+  await requireAdmin()
 
   const collector = collectorById(Number(id))
   if (!collector) notFound()

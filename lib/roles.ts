@@ -1,6 +1,13 @@
 import { routing } from '@/i18n/routing'
 
 /**
+ * Where `proxy.ts` sends a request whose role may not have it. The route
+ * calls `forbidden()`, so the response carries a real 403 while the address
+ * bar keeps showing what the user asked for.
+ */
+export const DENIED_PATH = '/denied'
+
+/**
  * The old app's two `user.permissions` values: 0 = admin, 1 = collector.
  * Mirrors the `UserRole` enum in `prisma/schema.prisma`.
  */
@@ -44,8 +51,11 @@ const COLLECTOR_PATHS = [
  */
 const FIELD_PATH = /^\/field(\/|$)/
 
-/** Reachable by any signed-in user: the 403 page itself, so denial terminates. */
-const ALWAYS_ALLOWED = ['/forbidden']
+/**
+ * Reachable by any signed-in user: the route `proxy.ts` rewrites a denied
+ * request to. Without it the denial would deny its own denial page.
+ */
+const ALWAYS_ALLOWED = [DENIED_PATH]
 
 /** The screen a role lands on after signing in. */
 export function roleHome(role: Role) {

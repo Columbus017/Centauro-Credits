@@ -8,6 +8,7 @@ import { LinkButton } from '@/components/link-button'
 import { routing } from '@/i18n/routing'
 import { formatDate, formatQCents } from '@/lib/format'
 import { ledgerEntries, paymentById } from '@/lib/mock-data'
+import { requireUser } from '@/lib/session'
 
 export function generateStaticParams() {
   return routing.locales.flatMap((locale) =>
@@ -32,6 +33,11 @@ export default async function ReceiptPage({
   const { locale, id } = await params
   setRequestLocale(locale)
 
+  // Both roles reach this screen. `/payments` is an admin list, so the way
+  // back for a collector is their own day.
+  const { role } = await requireUser()
+  const backHref = role === 'admin' ? '/payments' : '/field/today'
+
   const payment = paymentById(Number(id))
   if (!payment) notFound()
 
@@ -44,7 +50,7 @@ export default async function ReceiptPage({
   return (
     <AppShell title={t('receipt.title')}>
       <div className="no-print mb-6 flex items-center justify-between">
-        <LinkButton variant="outline" size="lg" href="/payments">
+        <LinkButton variant="outline" size="lg" href={backHref}>
           <ArrowLeft className="size-4" />
           {tc('back')}
         </LinkButton>
