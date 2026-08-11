@@ -29,7 +29,14 @@ export function SelectField({
   className?: string
   size?: React.ComponentProps<typeof SelectTrigger>['size']
   name?: string
-  /** For selects inside a repeater, whose value has to be mirrored in state. */
+  /**
+   * For selects inside a repeater, whose value has to be mirrored in state.
+   *
+   * Only ever passed by a Client Component. This component itself is a Server
+   * Component, and forwarding a handler unconditionally — even a wrapper
+   * around `undefined` — makes every server-rendered page that uses a select
+   * fail with "Event handlers cannot be passed to Client Component props".
+   */
   onValueChange?: (value: string) => void
 }) {
   return (
@@ -37,7 +44,9 @@ export function SelectField({
       items={options}
       name={name}
       defaultValue={defaultValue ?? options[0]?.value}
-      onValueChange={(value) => onValueChange?.(String(value))}
+      onValueChange={
+        onValueChange ? (value) => onValueChange(String(value)) : undefined
+      }
     >
       <SelectTrigger size={size} className={className}>
         <SelectValue />
