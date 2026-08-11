@@ -2,6 +2,11 @@ allowBuilds:
   # Both are transitive deps of next-intl (its message extractor); their build
   # scripts only set up native bindings.
   '@parcel/watcher': true
+  # Prisma's postinstall fetches/links the query engine binary.
+  '@prisma/engines': true
   '@swc/core': true
+  # tsx/vitest bundler; its build script only unpacks the platform binary.
+  esbuild: true
+  prisma: true
   sharp: false
   unrs-resolver: false
