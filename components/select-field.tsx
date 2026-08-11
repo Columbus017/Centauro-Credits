@@ -22,18 +22,22 @@ export function SelectField({
   className,
   size,
   name,
+  onValueChange,
 }: {
   options: SelectOption[]
   defaultValue?: string
   className?: string
   size?: React.ComponentProps<typeof SelectTrigger>['size']
   name?: string
+  /** For selects inside a repeater, whose value has to be mirrored in state. */
+  onValueChange?: (value: string) => void
 }) {
   return (
     <Select
       items={options}
       name={name}
       defaultValue={defaultValue ?? options[0]?.value}
+      onValueChange={(value) => onValueChange?.(String(value))}
     >
       <SelectTrigger size={size} className={className}>
         <SelectValue />

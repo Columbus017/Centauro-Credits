@@ -284,7 +284,8 @@
       "startDate": "Fecha de entrega",
       "computed": "Total a pagar",
       "computedHint": "Capital más {rate} de interés.",
-      "save": "Guardar crédito"
+      "save": "Guardar crédito",
+      "editDescription": "Cambiar el capital mueve la entrega del crédito y recalcula todos los saldos posteriores."
     },
     "importPage": {
       "title": "Ingresar crédito existente",

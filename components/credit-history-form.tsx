@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useActionState, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 
+import { FieldError, FormError, invalid } from '@/components/forms/form-errors'
 import { FormField } from '@/components/form-field'
 import { SelectField } from '@/components/select-field'
 import { Button } from '@/components/ui/button'
@@ -16,6 +17,8 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { formatPercent, formatQCents } from '@/lib/format'
+import { importCreditHistory } from '@/lib/actions/credits'
+import { EMPTY_STATE, type FormState } from '@/lib/actions/form-state'
 
 type PaymentDraft = { key: number; date: string; amount: string }
 
@@ -34,15 +37,23 @@ export function CreditHistoryForm({
   customers,
   collectors,
   interestRate,
+  today,
   locale,
 }: {
   customers: { value: string; label: string }[]
   collectors: { value: string; label: string }[]
   interestRate: number
+  today: string
   locale: string
 }) {
   const t = useTranslations('credits')
   const tc = useTranslations('common')
+  const uiLocale = useLocale()
+
+  const [state, formAction, pending] = useActionState<FormState, FormData>(
+    importCreditHistory,
+    EMPTY_STATE,
+  )
 
   const [principal, setPrincipal] = useState('')
   const [nextKey, setNextKey] = useState(2)
@@ -70,9 +81,23 @@ export function CreditHistoryForm({
     )
   }
 
+  // The rows are a repeater, so they travel as one JSON field — the shape
+  // `newHistory.php` posted as `json`, and the shape the action parses.
+  const paymentsJson = JSON.stringify(
+    payments
+      .filter((payment) => payment.date !== '' && payment.amount !== '')
+      .map((payment) => ({ date: payment.date, amount: payment.amount })),
+  )
+
   return (
-    <form className="grid gap-6 lg:grid-cols-3">
+    <form action={formAction} className="grid gap-6 lg:grid-cols-3">
+      <input type="hidden" name="locale" value={uiLocale} />
+      <input type="hidden" name="payments" value={paymentsJson} />
+
       <div className="space-y-6 lg:col-span-2">
+        <div className="lg:col-span-2">
+          <FormError state={state} />
+        </div>
         <Card>
           <CardHeader>
             <CardTitle>{t('form.details')}</CardTitle>
@@ -84,20 +109,38 @@ export function CreditHistoryForm({
           </CardHeader>
           <CardContent className="grid gap-5 sm:grid-cols-2">
             <FormField label={t('form.code')} htmlFor="import-code">
-              <Input id="import-code" placeholder="T-0000" className="h-10 font-mono" />
+              <Input
+                id="import-code"
+                name="code"
+                placeholder="T-0000"
+                className="h-10 font-mono"
+                aria-invalid={invalid(state, 'code')}
+              />
+              <FieldError state={state} field="code" />
             </FormField>
             <FormField label={t('form.startDate')} htmlFor="import-start">
-              <Input id="import-start" type="date" className="h-10" />
+              <Input
+                id="import-start"
+                name="startDate"
+                type="date"
+                className="h-10"
+                defaultValue={today}
+                aria-invalid={invalid(state, 'startDate')}
+              />
+              <FieldError state={state} field="startDate" />
             </FormField>
             <FormField label={t('form.principal')} htmlFor="import-principal">
               <Input
                 id="import-principal"
+                name="principal"
                 inputMode="decimal"
                 placeholder="0.00"
                 className="h-10 text-right font-mono"
                 value={principal}
                 onChange={(event) => setPrincipal(event.target.value)}
+                aria-invalid={invalid(state, 'principal')}
               />
+              <FieldError state={state} field="principal" />
             </FormField>
             <FormField label={t('form.computed')}>
               <div className="flex h-10 items-center justify-end rounded-lg border border-input bg-muted px-3 font-mono text-sm font-semibold tabular-nums">
@@ -192,16 +235,10 @@ export function CreditHistoryForm({
           </CardHeader>
           <CardContent className="space-y-5">
             <FormField label={tc('client')}>
-              <SelectField
-                className="h-10 w-full"
-                options={customers}
-              />
+              <SelectField name="customerId" className="h-10 w-full" options={customers} />
             </FormField>
             <FormField label={tc('collector')}>
-              <SelectField
-                className="h-10 w-full"
-                options={collectors}
-              />
+              <SelectField name="collectorId" className="h-10 w-full" options={collectors} />
             </FormField>
 
             <div className="flex items-center justify-between border-t border-border pt-4">
@@ -217,8 +254,8 @@ export function CreditHistoryForm({
               </span>
             </div>
 
-            <Button size="lg" className="w-full" disabled={overpaid}>
-              {t('importPage.save')}
+            <Button size="lg" type="submit" className="w-full" disabled={overpaid || pending}>
+              {pending ? tc('saving') : t('importPage.save')}
             </Button>
           </CardContent>
         </Card>

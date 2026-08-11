@@ -49,6 +49,20 @@ export const money = z
   .transform(Number)
   .refine((value) => value > 0, 'mustBePositive')
 
+/**
+ * A quetzal amount that may legitimately be zero, or left blank.
+ *
+ * The daily close has all three: a collector can go out with no base, place no
+ * credits and hand back nothing over. `newIncome.php` only refused an *empty*
+ * base or surplus, and treated a blank as zero.
+ */
+export const moneyOrZero = z
+  .string()
+  .trim()
+  .transform((value) => (value === '' ? '0' : value))
+  .refine((value) => /^\d+(\.\d{1,2})?$/.test(value), 'invalidAmount')
+  .transform(Number)
+
 /** A foreign key from a `<select>`. */
 export const foreignKey = z
   .string()

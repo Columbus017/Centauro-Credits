@@ -228,7 +228,7 @@ export async function createCommerce(
 
   await db.commerce.create({ data: parsed.data })
   revalidate('/admin/settings', '/clients')
-  return {}
+  return { ok: true }
 }
 
 export async function setCommerceActive(formData: FormData) {

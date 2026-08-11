@@ -10,6 +10,11 @@ export type FormState = {
   error?: string
   /** Field name → key under `errors`. */
   fieldErrors?: Record<string, string>
+  /**
+   * Set by actions that finish without navigating, so a dialog knows to close.
+   * Actions that `redirect()` never return at all.
+   */
+  ok?: true
 }
 
 export const EMPTY_STATE: FormState = {}

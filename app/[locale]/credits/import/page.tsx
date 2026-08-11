@@ -4,6 +4,7 @@ import { AppShell } from '@/components/app-shell'
 import { CreditHistoryForm } from '@/components/credit-history-form'
 import { PageHeader } from '@/components/page-header'
 import { LinkButton } from '@/components/link-button'
+import { today } from '@/lib/clock'
 import { DEFAULT_INTEREST_RATE } from '@/lib/ledger'
 import { collectorOptions, customerOptions } from '@/lib/queries/entities'
 import { requireAdmin } from '@/lib/session'
@@ -38,6 +39,7 @@ export default async function ImportCreditPage({ params }: PageProps<'/[locale]'
         customers={customers}
         collectors={collectors}
         interestRate={DEFAULT_INTEREST_RATE}
+        today={today()}
         locale={locale}
       />
     </AppShell>

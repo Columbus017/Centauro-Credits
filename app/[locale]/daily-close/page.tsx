@@ -14,6 +14,8 @@ import {
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
 import { formatDate, formatQ } from '@/lib/format'
+import { today } from '@/lib/clock'
+import { listCredits } from '@/lib/queries/credits'
 import { listDailyCloses } from '@/lib/queries/daily-close'
 import { collectorOptions } from '@/lib/queries/entities'
 import { requireAdmin } from '@/lib/session'
@@ -25,13 +27,30 @@ export default async function DailyClosePage({ params }: PageProps<'/[locale]'>)
 
   const t = await getTranslations('dailyClose')
 
-  const [collectors, history] = await Promise.all([collectorOptions(), listDailyCloses()])
+  const [collectors, history, live] = await Promise.all([
+    collectorOptions(),
+    listDailyCloses(),
+    listCredits({ collectorId: null }, { status: 'active' }),
+  ])
+
+  // A payment names a live credit rather than a typed card number: the legacy
+  // form took free text and posted whatever it was given as `_idCredit`.
+  const credits = live.map((credit) => ({
+    value: String(credit.id),
+    label: `${credit.code} · ${credit.customerName}`,
+    collectorId: String(credit.collectorId),
+  }))
 
   return (
     <AppShell title={t('title')}>
       <PageHeader title={t('title')} description={t('description')} />
 
-      <DailyCloseForm collectors={collectors} locale={locale} />
+      <DailyCloseForm
+        collectors={collectors}
+        credits={credits}
+        today={today()}
+        locale={locale}
+      />
 
       <Card className="mt-6 py-0">
         <CardHeader className="pt-6">

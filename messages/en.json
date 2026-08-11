@@ -284,7 +284,8 @@
       "startDate": "Disbursement date",
       "computed": "Total due",
       "computedHint": "Principal plus {rate} interest.",
-      "save": "Save credit"
+      "save": "Save credit",
+      "editDescription": "Changing the principal moves the origination and re-derives every later balance."
     },
     "importPage": {
       "title": "Import existing credit",

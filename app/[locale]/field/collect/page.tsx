@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
 import { formatDate, formatNumber, formatQ } from '@/lib/format'
+import { today } from '@/lib/clock'
 import { daysSincePayment, listCredits } from '@/lib/queries/credits'
 import { requireCollector } from '@/lib/session'
 
@@ -23,6 +24,7 @@ export default async function FieldCollectPage({ params }: PageProps<'/[locale]'
   const { locale } = await params
   setRequestLocale(locale)
   const { collectorId } = await requireCollector()
+  const asOf = today()
 
   const t = await getTranslations('field.collect')
   const tc = await getTranslations('common')
@@ -89,9 +91,11 @@ export default async function FieldCollectPage({ params }: PageProps<'/[locale]'
                       </TableCell>
                       <TableCell className="pr-4 text-right">
                         <RecordPaymentDialog
+                          creditId={row.id}
                           creditCode={row.code}
                           customerName={row.customerName}
                           outstanding={row.outstanding}
+                          today={asOf}
                           locale={locale}
                         />
                       </TableCell>

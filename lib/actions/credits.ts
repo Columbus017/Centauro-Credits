@@ -19,6 +19,7 @@ import {
   isoDateString,
   localeFrom,
   money,
+  moneyOrZero,
   parseForm,
   requiredText,
   revalidateLedger,
@@ -240,9 +241,6 @@ export async function deleteCredit(formData: FormData) {
 
   revalidateLedger()
   redirect({ href: '/credits', locale: localeFrom(formData) })
-  // Unreachable: `redirect` throws. TypeScript cannot see that through
-  // next-intl's destructured export.
-  return {}
 }
 
 // ----------------------------------------------------------------- payments
@@ -318,7 +316,7 @@ export async function recordPayment(
   }
 
   revalidateLedger()
-  return {}
+  return { ok: true }
 }
 
 /**
@@ -448,9 +446,9 @@ export async function importCreditHistory(
 const dailyCloseSchema = z.object({
   collectorId: foreignKey,
   closeDate: isoDateString,
-  base: money.or(z.literal('0').transform(() => 0)),
-  disbursed: money.or(z.literal('0').transform(() => 0)),
-  surplus: money.or(z.literal('0').transform(() => 0)),
+  base: moneyOrZero,
+  disbursed: moneyOrZero,
+  surplus: moneyOrZero,
   payments: z
     .string()
     .transform((value, ctx) => {
