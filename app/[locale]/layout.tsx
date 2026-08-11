@@ -4,6 +4,7 @@ import { hasLocale, NextIntlClientProvider } from 'next-intl'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { notFound } from 'next/navigation'
 
+import { ThemeScript } from '@/components/theme-script'
 import { routing } from '@/i18n/routing'
 import '../globals.css'
 
@@ -41,19 +42,6 @@ export const viewport: Viewport = {
   ],
 }
 
-// Applies the stored theme before first paint so dark mode doesn't flash white.
-const themeScript = `
-(function() {
-  try {
-    var stored = localStorage.getItem('centauro-theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (stored === 'dark' || (!stored && prefersDark)) {
-      document.documentElement.classList.add('dark');
-    }
-  } catch (e) {}
-})();
-`
-
 export default async function LocaleLayout({
   children,
   params,
@@ -71,7 +59,7 @@ export default async function LocaleLayout({
       suppressHydrationWarning
     >
       <body className="font-sans antialiased">
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <ThemeScript />
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>
     </html>

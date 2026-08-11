@@ -1,5 +1,5 @@
 import { ArrowLeft, CreditCard, Route as RouteIcon, UserCog } from 'lucide-react'
-import { notFound } from 'next/navigation'
+import { forbidden, notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { AppShell } from '@/components/app-shell'
@@ -47,12 +47,17 @@ export default async function CreditDetailPage({
   // A collector opens this screen from their round — the legacy
   // `listCreditsOp.php` showed the same ledger in its "Balance de Saldos"
   // modal. Everything that leaves the credit, or changes it, is the admin's.
-  const { role } = await requireUser()
+  const { role, collectorId } = await requireUser()
   const isAdmin = role === 'admin'
   const backHref = isAdmin ? '/credits' : '/field/collect'
 
   const credit = creditById(Number(id))
   if (!credit) notFound()
+
+  // Reaching the route is not the same as owning the row: without this a
+  // collector reads any credit in the book by changing the number in the URL.
+  // Phase 4 moves the check into the query itself.
+  if (!isAdmin && credit.collectorId !== collectorId) forbidden()
 
   const t = await getTranslations('credits')
   const tc = await getTranslations('common')
@@ -73,10 +78,13 @@ export default async function CreditDetailPage({
     <AppShell title={t('detail.title')}>
       <PageHeader
         title={credit.code}
-        breadcrumbs={[
-          { label: t('title'), href: isAdmin ? '/credits' : undefined },
-          { label: credit.code },
-        ]}
+        // The trail is "Créditos › T-1042", and a collector has no credits
+        // list to climb back to — for them the *Regresar* button is the way out.
+        breadcrumbs={
+          isAdmin
+            ? [{ label: t('title'), href: '/credits' }, { label: credit.code }]
+            : undefined
+        }
         actions={
           <>
             <LinkButton variant="outline" size="lg" href={backHref}>

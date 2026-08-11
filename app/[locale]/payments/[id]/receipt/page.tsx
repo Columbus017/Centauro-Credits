@@ -1,5 +1,5 @@
 import { ArrowLeft, Landmark } from 'lucide-react'
-import { notFound } from 'next/navigation'
+import { forbidden, notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { AppShell } from '@/components/app-shell'
@@ -7,7 +7,7 @@ import { PrintButton } from '@/components/print-button'
 import { LinkButton } from '@/components/link-button'
 import { routing } from '@/i18n/routing'
 import { formatDate, formatQCents } from '@/lib/format'
-import { ledgerEntries, paymentById } from '@/lib/mock-data'
+import { creditById, ledgerEntries, paymentById } from '@/lib/mock-data'
 import { requireUser } from '@/lib/session'
 
 export function generateStaticParams() {
@@ -35,11 +35,18 @@ export default async function ReceiptPage({
 
   // Both roles reach this screen. `/payments` is an admin list, so the way
   // back for a collector is their own day.
-  const { role } = await requireUser()
-  const backHref = role === 'admin' ? '/payments' : '/field/today'
+  const { role, collectorId } = await requireUser()
+  const isAdmin = role === 'admin'
+  const backHref = isAdmin ? '/payments' : '/field/today'
 
   const payment = paymentById(Number(id))
   if (!payment) notFound()
+
+  // A receipt names a client and an amount, so a collector may only open one
+  // written against a credit on their own round. Phase 4 moves this into the
+  // query. See the same check on the credit detail screen.
+  const credit = creditById(payment.creditId)
+  if (!isAdmin && credit?.collectorId !== collectorId) forbidden()
 
   const t = await getTranslations('payments')
   const tc = await getTranslations('common')

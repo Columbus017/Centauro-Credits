@@ -1,4 +1,5 @@
 import { LinkButton } from '@/components/link-button'
+import { ThemeSync } from '@/components/theme-script'
 import { ThemeToggle } from '@/components/theme-toggle'
 
 /**
@@ -23,6 +24,7 @@ export function AuthNotice({
 }) {
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-background px-6">
+      <ThemeSync />
       <div className="absolute top-5 right-5">
         <ThemeToggle />
       </div>
