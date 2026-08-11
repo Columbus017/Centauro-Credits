@@ -1,0 +1,283 @@
+// Centauro Créditos — PostgreSQL schema.
+//
+// This replaces the legacy MySQL 5.7 schema of `../centauro_old`, which existed
+// only inside that app's SQL strings. The shape is deliberately close to the
+// original so `scripts/migrate-from-mysql.ts` can preserve every primary key
+// (card numbers and printed receipts reference them), with four corrections:
+//
+//   1. Money is `Decimal(12,2)`. The old columns were floats — a live rounding
+//      bug on a ledger that must reconcile to the centavo.
+//   2. Foreign keys are real. The old schema had none; `_idCustomer` and
+//      friends were conventions enforced only by the PHP.
+//   3. The `state` / `cancel` / `balpay` integer flags become booleans, enums
+//      or nullable timestamps, so a row records *when* something happened.
+//   4. `daily_closes` is unique per collector per day. The old `income` table
+//      silently accepted duplicate closes.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Marketplace a client trades in — `commerce` in the old schema.
+model Commerce {
+  id   Int    @id @default(autoincrement())
+  name String @db.VarChar(120)
+
+  /// The old table had no `state` column: a commerce could be created but
+  /// never edited or removed. Kept nullable-free and defaulted so the admin
+  /// screens can retire one without deleting client history.
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  customers Customer[]
+
+  @@map("commerce")
+}
+
+/// Field agent who lends and collects along a route — `collector`.
+model Collector {
+  id        Int       @id @default(autoincrement())
+  firstName String    @map("first_name") @db.VarChar(80)
+  lastName  String    @map("last_name") @db.VarChar(80)
+  /// Guatemalan national ID. Not unique: the legacy data is unverified and an
+  /// import must not fail on a duplicate typed years ago.
+  dpi       String?   @db.VarChar(20)
+  mobile    String?   @db.VarChar(20)
+  address   String?
+  birthDate DateTime? @map("birth_date") @db.Date
+
+  /// `state = 1` in the old schema meant soft-deleted.
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  routes      Route[]
+  credits     Credit[]
+  dailyCloses DailyClose[]
+  users       User[]
+
+  @@index([active])
+  @@map("collectors")
+}
+
+/// Collection round — `route`.
+model Route {
+  id      Int     @id @default(autoincrement())
+  code    String  @map("code") @db.VarChar(20)
+  name    String  @db.VarChar(120)
+  details String?
+
+  collectorId Int?       @map("collector_id")
+  collector   Collector? @relation(fields: [collectorId], references: [id], onDelete: SetNull)
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  customers Customer[]
+
+  @@index([collectorId])
+  @@index([active])
+  @@map("routes")
+}
+
+/// Borrower — `customer`.
+model Customer {
+  id        Int     @id @default(autoincrement())
+  firstName String  @map("first_name") @db.VarChar(80)
+  lastName  String  @map("last_name") @db.VarChar(80)
+  dpi       String? @db.VarChar(20)
+  address   String?
+  mobile    String? @db.VarChar(20)
+  mobile2   String? @map("mobile2") @db.VarChar(20)
+
+  commerceId Int?      @map("commerce_id")
+  commerce   Commerce? @relation(fields: [commerceId], references: [id], onDelete: SetNull)
+
+  routeId Int?   @map("route_id")
+  route   Route? @relation(fields: [routeId], references: [id], onDelete: SetNull)
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  credits Credit[]
+
+  @@index([routeId])
+  @@index([commerceId])
+  @@index([active])
+  @@map("customers")
+}
+
+/// A loan — `credit`.
+///
+/// Payoff is `principal * (1 + interestRate)`, taken in one lump at
+/// origination; there is no schedule, term or per-period accrual.
+model Credit {
+  id Int @id @default(autoincrement())
+
+  customerId Int      @map("customer_id")
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  collectorId Int       @map("collector_id")
+  collector   Collector @relation(fields: [collectorId], references: [id], onDelete: Restrict)
+
+  /// The client's card number — `credit.code`. Free text, not unique in the
+  /// legacy data.
+  code String @db.VarChar(40)
+
+  startDate DateTime @map("start_date") @db.Date
+
+  /// `credit.total` in the old schema: the amount handed over, before interest.
+  principal Decimal @db.Decimal(12, 2)
+
+  /// A flat 15% for every credit the business has ever written. Stored per
+  /// credit rather than hardcoded, so historical rows stay correct if the rate
+  /// ever moves.
+  interestRate Decimal @default(0.15) @map("interest_rate") @db.Decimal(5, 4)
+
+  /// Set when the balance reaches zero — `credit.cancel = 1`. The old schema
+  /// recorded only the flag; the ETL back-fills the date of the final payment.
+  cancelledAt DateTime? @map("cancelled_at") @db.Date
+
+  /// `credit.record = 1` — payoff took more than 30 days.
+  badRecord Boolean @default(false) @map("bad_record")
+
+  /// The old app hard-deleted a credit *and its whole ledger*. Deleting money
+  /// records irrecoverably is the one behaviour we do not port.
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  ledgerEntries LedgerEntry[]
+
+  @@index([customerId])
+  @@index([collectorId])
+  @@index([code])
+  @@index([cancelledAt])
+  @@map("credits")
+}
+
+enum LedgerEntryKind {
+  origination
+  payment
+
+  @@map("ledger_entry_kind")
+}
+
+/// The payment ledger — `balance`.
+///
+/// The old table conflated two record types under a `balpay` flag: the first
+/// row of a credit is the origination (`balpay = 0`, `amount = balance =
+/// principal * 1.15`), every later row is a payment carrying a denormalised
+/// running balance. That denormalisation is kept — every list screen reads it —
+/// but recomputation lives in exactly one place, `recalculateBalances()` in
+/// `lib/ledger.ts`.
+model LedgerEntry {
+  id Int @id @default(autoincrement())
+
+  creditId Int    @map("credit_id")
+  credit   Credit @relation(fields: [creditId], references: [id], onDelete: Restrict)
+
+  kind LedgerEntryKind
+
+  entryDate DateTime @map("entry_date") @db.Date
+
+  amount Decimal @db.Decimal(12, 2)
+
+  /// Balance still owed after this entry, ignoring voided rows. Denormalised;
+  /// always derivable from the entries before it.
+  runningBalance Decimal @map("running_balance") @db.Decimal(12, 2)
+
+  /// `balance.state = 1` — the payment was annulled. Voiding re-derives every
+  /// later `runningBalance`. The old schema stored no timestamp, so migrated
+  /// rows carry the ETL run time rather than the real void date.
+  voidedAt DateTime? @map("voided_at") @db.Timestamptz(6)
+
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([creditId, id])
+  @@index([entryDate])
+  @@map("ledger_entries")
+}
+
+/// A collector's end-of-day cash reconciliation — `income`.
+///
+/// `cash = (base + collected) - (disbursed + surplus)`, the figure the legacy
+/// dashboard charts.
+model DailyClose {
+  id Int @id @default(autoincrement())
+
+  collectorId Int       @map("collector_id")
+  collector   Collector @relation(fields: [collectorId], references: [id], onDelete: Restrict)
+
+  closeDate DateTime @map("close_date") @db.Date
+
+  /// `income.incomes` — cash taken from clients that day.
+  collected Decimal @db.Decimal(12, 2)
+  /// `income.base` — float the collector started the day with.
+  base      Decimal @db.Decimal(12, 2)
+  /// `income.exes` — cash handed back over the base.
+  surplus   Decimal @db.Decimal(12, 2)
+  /// `income.credits` — cash paid out as new credits that day.
+  disbursed Decimal @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  /// The old app had no such constraint and accepted duplicate closes, which
+  /// double-counted a collector's day on every dashboard.
+  @@unique([collectorId, closeDate])
+  @@index([closeDate])
+  @@map("daily_closes")
+}
+
+/// `user.permissions`: 0 = admin, 1 = collector (the old sidebar's two branches).
+enum UserRole {
+  admin
+  collector
+
+  @@map("user_role")
+}
+
+/// Console login — `user`.
+model User {
+  id        Int    @id @default(autoincrement())
+  firstName String @map("first_name") @db.VarChar(80)
+  lastName  String @map("last_name") @db.VarChar(80)
+  username  String @unique @db.VarChar(60)
+
+  /// PHP `password_hash(..., PASSWORD_BCRYPT)` output. bcrypt hashes are
+  /// portable, so migrated users keep their passwords — no resets.
+  passwordHash String @map("password_hash") @db.VarChar(255)
+
+  role UserRole
+
+  /// Collectors are scoped to their own field screens through this link.
+  collectorId Int?       @map("collector_id")
+  collector   Collector? @relation(fields: [collectorId], references: [id], onDelete: SetNull)
+
+  active Boolean @default(true)
+
+  lastLoginAt DateTime? @map("last_login_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([collectorId])
+  @@map("users")
+}

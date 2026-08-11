@@ -1,0 +1,43 @@
+# Local development database only. The production compose file arrives in
+# Phase 6 and gets its credentials from Dokploy env vars, never from here.
+services:
+  postgres:
+    image: postgres:16
+    container_name: centauro-postgres-dev
+    environment:
+      POSTGRES_DB: centauro
+      POSTGRES_USER: centauro
+      POSTGRES_PASSWORD: centauro
+    ports:
+      # 5433 on the host: 5432 is routinely taken by another project's
+      # container, and a dev database is not worth a port fight.
+      - '5433:5432'
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U centauro -d centauro']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Scratch MySQL 5.7 for restoring a `mysqldump` copy so the ETL has a source
+  # to read. Never point the ETL at the live database.
+  mysql:
+    image: mysql:5.7
+    container_name: centauro-mysql-etl
+    # MySQL 5.7 was never published for arm64; on Apple Silicon it only runs
+    # under emulation, which is slow but adequate for a one-shot import.
+    platform: linux/amd64
+    command: --sql-mode=""
+    environment:
+      MYSQL_DATABASE: localdb
+      MYSQL_ROOT_PASSWORD: etl
+    ports:
+      - '3307:3306'
+    volumes:
+      - mysql_etl_data:/var/lib/mysql
+    profiles: [etl]
+
+volumes:
+  postgres_dev_data:
+  mysql_etl_data:
