@@ -1,5 +1,5 @@
 import { ArrowLeft, CreditCard, Route as RouteIcon, UserCog } from 'lucide-react'
-import { notFound } from 'next/navigation'
+import { forbidden, notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { AppShell } from '@/components/app-shell'
@@ -30,6 +30,7 @@ import {
   fullName,
   routeById,
 } from '@/lib/mock-data'
+import { requireUser } from '@/lib/session'
 
 export function generateStaticParams() {
   return routing.locales.flatMap((locale) =>
@@ -43,8 +44,20 @@ export default async function CreditDetailPage({
   const { locale, id } = await params
   setRequestLocale(locale)
 
+  // A collector opens this screen from their round — the legacy
+  // `listCreditsOp.php` showed the same ledger in its "Balance de Saldos"
+  // modal. Everything that leaves the credit, or changes it, is the admin's.
+  const { role, collectorId } = await requireUser()
+  const isAdmin = role === 'admin'
+  const backHref = isAdmin ? '/credits' : '/field/collect'
+
   const credit = creditById(Number(id))
   if (!credit) notFound()
+
+  // Reaching the route is not the same as owning the row: without this a
+  // collector reads any credit in the book by changing the number in the URL.
+  // Phase 4 moves the check into the query itself.
+  if (!isAdmin && credit.collectorId !== collectorId) forbidden()
 
   const t = await getTranslations('credits')
   const tc = await getTranslations('common')
@@ -65,10 +78,16 @@ export default async function CreditDetailPage({
     <AppShell title={t('detail.title')}>
       <PageHeader
         title={credit.code}
-        breadcrumbs={[{ label: t('title'), href: '/credits' }, { label: credit.code }]}
+        // The trail is "Créditos › T-1042", and a collector has no credits
+        // list to climb back to — for them the *Regresar* button is the way out.
+        breadcrumbs={
+          isAdmin
+            ? [{ label: t('title'), href: '/credits' }, { label: credit.code }]
+            : undefined
+        }
         actions={
           <>
-            <LinkButton variant="outline" size="lg" href="/credits">
+            <LinkButton variant="outline" size="lg" href={backHref}>
               <ArrowLeft className="size-4" />
               {tc('back')}
             </LinkButton>
@@ -88,12 +107,16 @@ export default async function CreditDetailPage({
         </span>
         <div className="mr-auto min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={`/clients/${credit.customerId}`}
-              className="font-semibold hover:underline"
-            >
-              {customerName}
-            </Link>
+            {isAdmin ? (
+              <Link
+                href={`/clients/${credit.customerId}`}
+                className="font-semibold hover:underline"
+              >
+                {customerName}
+              </Link>
+            ) : (
+              <span className="font-semibold">{customerName}</span>
+            )}
             <StatusBadge status={credit.status} />
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -191,9 +214,15 @@ export default async function CreditDetailPage({
                             >
                             {tPayments('table.receipt')}
                           </LinkButton>
-                          <Button variant="ghost" size="sm" className="text-destructive">
-                            {t('detail.void')}
-                          </Button>
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive"
+                            >
+                              {t('detail.void')}
+                            </Button>
+                          )}
                         </div>
                       )}
                     </TableCell>

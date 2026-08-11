@@ -26,10 +26,12 @@ import {
   capitalTotal,
   outstandingTotal,
 } from '@/lib/mock-data'
+import { requireAdmin } from '@/lib/session'
 
 export default async function CreditsPage({ params }: PageProps<'/[locale]'>) {
   const { locale } = await params
   setRequestLocale(locale)
+  await requireAdmin()
 
   const t = await getTranslations('credits')
   const tc = await getTranslations('common')

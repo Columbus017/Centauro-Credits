@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/table'
 import { formatDate } from '@/lib/format'
 import { recentReports, reportDefs } from '@/lib/mock-data'
+import { requireAdmin } from '@/lib/session'
 
 const filterIcons = {
   dateRange: CalendarRange,
@@ -32,6 +33,7 @@ const filterIcons = {
 export default async function ReportsPage({ params }: PageProps<'/[locale]'>) {
   const { locale } = await params
   setRequestLocale(locale)
+  await requireAdmin()
 
   const t = await getTranslations('reports')
   const tc = await getTranslations('common')

@@ -29,6 +29,7 @@ import {
   routeById,
   routes,
 } from '@/lib/mock-data'
+import { requireAdmin } from '@/lib/session'
 
 export function generateStaticParams() {
   return routing.locales.flatMap((locale) =>
@@ -41,6 +42,7 @@ export default async function RouteDetailPage({
 }: PageProps<'/[locale]/routes/[id]'>) {
   const { locale, id } = await params
   setRequestLocale(locale)
+  await requireAdmin()
 
   const route = routeById(Number(id))
   if (!route) notFound()

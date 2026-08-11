@@ -34,10 +34,12 @@ import {
   delinquentCredits,
   portfolioKpis,
 } from '@/lib/mock-data'
+import { requireAdmin } from '@/lib/session'
 
 export default async function DashboardPage({ params }: PageProps<'/[locale]'>) {
   const { locale } = await params
   setRequestLocale(locale)
+  await requireAdmin()
 
   const t = await getTranslations('dashboard')
   const tc = await getTranslations('common')

@@ -37,6 +37,18 @@
     "admin": "Administrator",
     "collector": "Collector"
   },
+  "auth": {
+    "forbidden": {
+      "title": "Access denied",
+      "description": "Your account is not allowed to view this screen.",
+      "action": "Back to home"
+    },
+    "unauthorized": {
+      "title": "Sign-in required",
+      "description": "Sign in to continue.",
+      "action": "Sign in"
+    }
+  },
   "status": {
     "active": "Active",
     "inactive": "Inactive",
@@ -90,7 +102,11 @@
     "pitch": "The operating console for lending and field collections.",
     "statCollection": "Collection rate",
     "statPortfolio": "Portfolio",
-    "rights": "All rights reserved."
+    "rights": "All rights reserved.",
+    "errors": {
+      "required": "Enter your username and password.",
+      "invalid": "Incorrect username or password."
+    }
   },
   "dashboard": {
     "title": "Dashboard",

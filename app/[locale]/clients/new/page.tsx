@@ -16,10 +16,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { commerce, routes } from '@/lib/mock-data'
+import { requireAdmin } from '@/lib/session'
 
 export default async function NewClientPage({ params }: PageProps<'/[locale]'>) {
   const { locale } = await params
   setRequestLocale(locale)
+  await requireAdmin()
 
   const t = await getTranslations('clients')
   const tc = await getTranslations('common')

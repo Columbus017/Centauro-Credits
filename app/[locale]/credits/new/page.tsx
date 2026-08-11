@@ -17,10 +17,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { formatPercent } from '@/lib/format'
 import { collectors, customers, fullName, INTEREST_RATE } from '@/lib/mock-data'
+import { requireAdmin } from '@/lib/session'
 
 export default async function NewCreditPage({ params }: PageProps<'/[locale]'>) {
   const { locale } = await params
   setRequestLocale(locale)
+  await requireAdmin()
 
   const t = await getTranslations('credits')
   const tc = await getTranslations('common')

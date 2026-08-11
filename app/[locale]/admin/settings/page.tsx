@@ -16,10 +16,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { GOOD_RECORD_DAYS, INTEREST_RATE } from '@/lib/mock-data'
+import { requireAdmin } from '@/lib/session'
 
 export default async function AdminSettingsPage({ params }: PageProps<'/[locale]'>) {
   const { locale } = await params
   setRequestLocale(locale)
+  await requireAdmin()
 
   const t = await getTranslations('admin.settings')
   const tc = await getTranslations('common')

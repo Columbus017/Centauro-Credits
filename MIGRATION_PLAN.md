@@ -1,7 +1,7 @@
 # Centauro Créditos — PHP → Next.js Migration Plan
 
-**Status:** Phases 0–1 merged. Phase 2 is code-complete and awaiting review; the ETL still needs one run against the real dump.
-**Last updated:** 2026-08-10
+**Status:** Phases 0–2 merged. Phase 3 is code-complete and awaiting review. The ETL still needs one run against the real dump.
+**Last updated:** 2026-08-11
 
 ---
 
@@ -30,8 +30,8 @@ The design was drawn for a generic US lending product ("Lendly", USD, credit sco
 | DB | PostgreSQL 16 | ✅ in place |
 | ORM | Prisma 7 (`prisma-client` generator + `@prisma/adapter-pg`) | ✅ in place |
 | Mutations | Server Actions + `zod` — replaces `BLL/*.php` + jQuery AJAX | ⬜ Phase 4 |
-| Auth | Auth.js v5 Credentials provider, JWT session, role in token | ⬜ Phase 3 |
-| Passwords | `bcryptjs` — verifies the existing PHP `$2y$` hashes, no resets | ⬜ Phase 3 |
+| Auth | Auth.js v5 Credentials provider, JWT session, role in token | ✅ in place |
+| Passwords | `bcryptjs` — verifies the existing PHP `$2y$` hashes, no resets | ✅ in place |
 | PDF | `@react-pdf/renderer` for reports; print-CSS for receipts | ⬜ Phase 5 |
 | Deploy | Docker + docker-compose → Dokploy | ⬜ Phase 6 |
 
@@ -45,8 +45,8 @@ All work happens in `centauro_credits/`. **Each phase gets its own branch, cut f
 | --- | --- | --- |
 | 0 | `phase-0-foundation` | ✅ merged |
 | 1 | `phase-1-design-port` | ✅ merged |
-| 2 | `phase-2-postgres-migration` | ✅ complete, awaiting merge |
-| 3 | `phase-3-auth` | ⬜ |
+| 2 | `phase-2-postgres-migration` | ✅ merged |
+| 3 | `phase-3-auth` | ✅ complete, awaiting merge |
 | 4 | `phase-4-data-wiring` | ⬜ |
 | 5 | `phase-5-reports` | ⬜ |
 | 6 | `phase-6-deployment` | ⬜ |
@@ -140,15 +140,40 @@ Three conditions abort the run rather than guess, each with an opt-out flag: orp
 
 **Not verified:** anything that depends on the real dump — actual column widths, charset/encoding of accented names, and the true volume (the transaction budget is set to 30 minutes and inserts are batched at 1,000 rows, but neither has met a real table).
 
-### ⬜ Phase 3 — Auth and roles
+### ✅ Phase 3 — Auth and roles (complete, 3 commits)
 
-Auth.js v5 Credentials provider querying `users`, `bcryptjs.compare` against the migrated `$2y$` hash (bcrypt hashes are portable — **no password resets**), rejecting inactive users. Session JWT carries `userId`, `role`, `collectorId`.
+Auth.js v5 Credentials provider over `users`, JWT session carrying `role` and `collectorId`. `bcryptjs` verifies the migrated `$2y$` hashes unchanged — **no password resets**, confirmed against the seeded data. Inactive accounts are refused. An unknown username, a wrong password and a deactivated account are one indistinguishable failure that all cost a full bcrypt compare, so neither the message nor the timing enumerates who has an account; `BLL/logueo.php` returned immediately when the `SELECT` found nothing.
 
-Roles are the old app's two (`permissions` 0/1): **`admin`** (everything) and **`collector`** (`/field/*` only, scoped to their own `collector_id`).
+The config is split: `lib/auth.config.ts` touches no database, so `proxy.ts` reads the cookie on every request without bundling Prisma. `lib/auth.ts` adds the provider and is the only module that queries `users` — it also stamps `last_login_at`, the column Phase 2 added for the admin screen.
 
-Enforce in three layers: proxy for route access, `requireRole()` at the top of every Server Action, and the `nav` filter in `app-shell.tsx` (already built, currently driven by a `role` prop). **The old app only ever did the third** — server-side enforcement is a genuine security fix, not a refactor.
+**The three layers, and what each is actually for:**
 
-Replace the `SIGNED_IN_COLLECTOR_ID` constant in the two `/field` pages with the session.
+1. **`proxy.ts`** — optimistic, cookie-only, per the Next.js authentication guide. No session redirects to `/login` in the request's own locale; a signed-in user is bounced off the login screen; a collector asking for `/` lands on their round rather than a 403; a role that overreaches is **rewritten** to `/denied`, a route whose only job is to call `forbidden()`. Rewritten rather than redirected so the answer is a real 403 at the URL that was asked for.
+2. **`lib/session.ts`** — `requireUser()` / `requireAdmin()` / `requireCollector()`, at the top of every page. This is the layer that protects data, and it was verified to hold with layer 1 switched off.
+3. **`app-shell.tsx`** — the `nav` filter, now driven by the session. **The old app only ever had this one.**
+
+`AppShell` became a Server Component that reads the session and passes role and name to the frame, so every screen behind the login is authenticated by construction. `SIGNED_IN_COLLECTOR_ID` is gone from both `/field` pages.
+
+**Beyond the original plan, all deliberate:**
+
+- **A collector may open `/credits/[id]` and `/payments/[id]/receipt`.** "`/field/*` only" would have left the shipped field screens linking into 403s, and the legacy `listCreditsOp.php` already showed the same ledger in its *Balance de Saldos* modal. Both screens hide what belongs to the admin (the client link, the breadcrumb, *Anular pago*) and send a collector back to their own round.
+- **Row-level scoping is enforced now, against the mock data.** Route access is not row access — without it a collector read any credit's ledger and any client's receipt by changing the number in the URL. Phase 4 folds the same check into the query.
+- **`/field/*` is denied to admins.** Every figure on those screens is scoped to a `collector_id` an admin has not got.
+- **`experimental.authInterrupts`** is on, for `forbidden()` / `unauthorized()`. It is the only sanctioned way to answer with a real 403 or 401 from a Server Component.
+- **`lib/actions/auth.ts`** arrives a phase early — the login form needs a Server Action, and the plan filed `lib/actions/*` under Phase 4.
+- **`lib/roles.ts`** is the shared route policy, with 45 tests. It caught a real hole on the first run: `/credits/[^/]+` also matched `/credits/new` and `/credits/import`, which would have handed a collector the two screens that create credits.
+- **`@auth/core` is a devDependency** for one type augmentation. Augmenting `next-auth/jwt` does nothing — it only re-exports — and pnpm does not hoist the real module where TypeScript can resolve it.
+- Every route is now server-rendered on demand. Reading a session is reading a cookie, and nothing that does that can be static.
+
+**Verified** by driving the running app and the built app, not by the build: the full route matrix for both roles in both locales (admin 200s everywhere but `/field/*`; collector 200 on their four screens and 403 on the other thirteen, including `/en/clients`); sign-in, sign-out and the wrong-password message; `last_login_at` written on success and not on failure; row scoping (collector 1 opens credits 1 and 5, is refused 2, 3 and 4, and is refused another collector's receipt); the layers verified independently by neutralising the proxy check and confirming the pages still answer 403.
+
+**Three defects that only running the app revealed:**
+
+1. **Auth.js 500s on every production request** — it refuses to derive its own URL from the request host unless told to (`UntrustedHost`). Dev mode trusts localhost and hides this completely. `trustHost: true`, which also matters for Phase 6: the reverse proxy in front must set `X-Forwarded-Host` itself.
+2. **The 403 and 401 screens were stuck in light mode.** Both render through Next's own error shell — `<html id="__next_error__">`, not the locale layout — and React never executes a `dangerouslySetInnerHTML` script it renders on the client, so the anti-FOUC script never ran. The rule now lives once in `components/theme-script.tsx`.
+3. **A collector could read any credit and any receipt by id** (see above).
+
+**Not verified:** nothing exercises a `collector` user whose `collector_id` is null — `requireCollector()` answers 403 rather than rendering empty screens as the legacy app did, but no such row exists in the seed. Sessions expire after 12 hours; the expiry path has not been waited out.
 
 ### ⬜ Phase 4 — Wire screens to real data
 
@@ -198,9 +223,9 @@ Multi-stage `Dockerfile` (Next standalone); `docker-compose.yml` with `app` + `p
 
 **In `centauro_credits/`:**
 
-- `app/[locale]/**` — all 23 screens; `app/globals.css`, `proxy.ts`, `next.config.ts`
-- `components/ui/*` (15 primitives) + `app-shell`, `page-header`, `stat-card`, `status-badge`, `theme-toggle`, `summary-stat`, `form-field`, `search-input`, `select-field`, `link-button`, `admin-tabs`, `locale-switcher`, `record-payment-dialog`, `new-user-dialog`, `daily-close-form`, `credit-history-form`, `credit-amount-fields`, `print-button`, `dashboard/charts`
-- `lib/{utils,format,mock-data}.ts`; Phase 2 added `lib/{ledger,db,prisma-client,db-utils}.ts` → Phase 3 adds `lib/auth.ts`, Phase 4 `lib/actions/*.ts`
+- `app/[locale]/**` — 23 screens plus `forbidden.tsx`, `unauthorized.tsx` and the `denied/` rewrite target; `app/api/auth/[...nextauth]/route.ts`; `app/globals.css`, `proxy.ts`, `next.config.ts`
+- `components/ui/*` (15 primitives) + `app-shell`, `page-header`, `stat-card`, `status-badge`, `theme-toggle`, `summary-stat`, `form-field`, `search-input`, `select-field`, `link-button`, `admin-tabs`, `locale-switcher`, `record-payment-dialog`, `new-user-dialog`, `daily-close-form`, `credit-history-form`, `credit-amount-fields`, `print-button`, `dashboard/charts`, `app-shell-frame`, `login-form`, `auth-notice`, `theme-script`
+- `lib/{utils,format,mock-data}.ts`; Phase 2 added `lib/{ledger,db,prisma-client,db-utils}.ts`; Phase 3 added `lib/{auth,auth.config,roles,session}.ts`, `lib/actions/auth.ts` and `types/next-auth.d.ts` → Phase 4 fills out `lib/actions/*.ts`
 - `i18n/{routing,navigation,request}.ts`, `messages/{es,en}.json`
 - `prisma/{schema.prisma,seed.ts,migrations/}`, `prisma.config.ts`, `scripts/{migrate-from-mysql.ts,legacy-fixture.sql}`, `docker-compose.dev.yml`
 - Phase 6: `Dockerfile`, `docker-compose.yml`, `app/api/health/route.ts`
@@ -213,7 +238,9 @@ Multi-stage `Dockerfile` (Next standalone); `docker-compose.yml` with `app` + `p
 
 **Phase 2 (done against a reconstructed fixture; repeat against the real dump):** `pnpm db:migrate-legacy --dry-run` first — it reports every blocking condition and writes nothing. Then run it for real and check that per-table row counts match MySQL, `SUM(credits.total)` matches, and every reported balance mismatch is understood before the database is used. Investigate mismatches — do not auto-correct.
 
-**Phase 4 (behaviour parity):** run old and new side by side on the same data and diff — create a credit (origination = `total × 1.15`), pay to zero (→ cancelled, `bad_record` iff > 30 days), void a mid-sequence payment (→ later balances re-derived), submit a daily close (→ one `daily_closes` row + N ledger rows, atomic), and confirm a `collector` session gets 403 on `/clients` **at the server**, not merely a hidden nav link.
+**Phase 3 (done):** sign in, sign out, wrong password, and a deactivated account; the full route matrix for both roles in both locales; row scoping on the two shared screens; `last_login_at` written only on success. Two things are worth repeating on any auth change: neutralise `canAccess` in `proxy.ts` and confirm the pages still answer 403 on their own, and check the **production** build — `pnpm build && pnpm start` — because dev mode hid a total auth failure (`UntrustedHost`).
+
+**Phase 4 (behaviour parity):** run old and new side by side on the same data and diff — create a credit (origination = `total × 1.15`), pay to zero (→ cancelled, `bad_record` iff > 30 days), void a mid-sequence payment (→ later balances re-derived), submit a daily close (→ one `daily_closes` row + N ledger rows, atomic), and confirm a `collector` session gets 403 on `/clients` **at the server**, not merely a hidden nav link (already true — Phase 3 verified it at both the proxy and the page).
 
 **Suggested test setup** (none exists in either project): Vitest for the ledger math — `recalculateBalances`, payoff/`bad_record` detection, and void-cascade are the three places a bug silently corrupts money.
 
@@ -226,4 +253,7 @@ Multi-stage `Dockerfile` (Next standalone); `docker-compose.yml` with `app` + `p
 - Old money columns are floats; some historical balances will not reconcile to the penny. Surface during ETL rather than papering over.
 - MySQL 5.7 is EOL and the compose file commits DB credentials in plaintext. Rotate during Phase 6.
 - The mobile drawer (<1024px) has not been verified interactively.
+- **Row-level scoping is written against the mock data.** The checks on `/credits/[id]` and `/payments/[id]/receipt` must move into the Prisma queries in Phase 4, not be left duplicated beside them.
+- `forbidden()` / `unauthorized()` depend on `experimental.authInterrupts`. It is the sanctioned mechanism in Next 16 but still flagged experimental; a Next upgrade should re-check the 403 path.
+- `next-auth` is on `5.0.0-beta.32`. It declares Next 16 support and has been in beta a long while, but it is a beta on the login path.
 - The design app pins older ranges (`@base-ui/react` 1.5, `lucide-react` 1.16) than what installed here (1.7, 1.31). No issues so far beyond the recharts 3 `Pie` behaviour noted above.

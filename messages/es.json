@@ -37,6 +37,18 @@
     "admin": "Administrador",
     "collector": "Cobrador"
   },
+  "auth": {
+    "forbidden": {
+      "title": "Acceso denegado",
+      "description": "Su usuario no tiene permiso para ver esta pantalla.",
+      "action": "Volver al inicio"
+    },
+    "unauthorized": {
+      "title": "Sesión requerida",
+      "description": "Inicie sesión para continuar.",
+      "action": "Iniciar sesión"
+    }
+  },
   "status": {
     "active": "Activo",
     "inactive": "Inactivo",
@@ -90,7 +102,11 @@
     "pitch": "La consola operativa para créditos y cobranza de campo.",
     "statCollection": "Recuperación",
     "statPortfolio": "Cartera",
-    "rights": "Todos los derechos reservados."
+    "rights": "Todos los derechos reservados.",
+    "errors": {
+      "required": "Ingrese su usuario y su contraseña.",
+      "invalid": "Usuario o contraseña incorrectos."
+    }
   },
   "dashboard": {
     "title": "Panel",

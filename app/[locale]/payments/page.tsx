@@ -19,10 +19,12 @@ import {
 import { Link } from '@/i18n/navigation'
 import { formatDate, formatNumber, formatQ, formatQCents } from '@/lib/format'
 import { collectors, fullName, paymentRows } from '@/lib/mock-data'
+import { requireAdmin } from '@/lib/session'
 
 export default async function PaymentsPage({ params }: PageProps<'/[locale]'>) {
   const { locale } = await params
   setRequestLocale(locale)
+  await requireAdmin()
 
   const t = await getTranslations('payments')
   const tc = await getTranslations('common')
