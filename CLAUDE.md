@@ -21,7 +21,9 @@ The visual design comes from `../centauro_assets/uploads/lending-administration-
 - `pnpm db:migrate` — create/apply a Prisma migration; `pnpm db:seed` — load `lib/mock-data.ts`
 - `pnpm db:migrate-legacy` — the one-shot MySQL → Postgres ETL (see below)
 
-Copy `.env.example` to `.env` before any database command.
+Copy `.env.example` to `.env` before any database command. It also holds `AUTH_SECRET`, without which nothing behind the login renders.
+
+Every seeded user's password is `centauro` (development only): `mveliz` is the admin, `cmejia` a collector, `bcastillo` a deactivated account.
 
 Package manager is pnpm (`packageManager: pnpm@11.20.0`). Single-package pnpm workspace (`pnpm-workspace.yaml`), not a monorepo. Native build scripts must be allowlisted under `allowBuilds:` in `pnpm-workspace.yaml` or `pnpm install` fails.
 
@@ -50,6 +52,24 @@ Use `db` from `@/lib/db` in application code — it is `server-only` and keeps o
 Schema conventions: tables and columns are `snake_case` via `@@map`/`@map`, money is `Decimal(12,2)`, dates that carry no time are `@db.Date` (build them with `isoDate()` from `@/lib/db-utils`, never `new Date(iso)`), and audit columns are `timestamptz`. The old `state`/`cancel`/`balpay` integer flags are gone — a row records *when* something happened (`voided_at`, `cancelled_at`, `deleted_at`).
 
 `prisma/seed.ts` loads development fixtures from `lib/mock-data.ts` and wipes every table first. The production import is `scripts/migrate-from-mysql.ts`, which is a different thing entirely: it preserves original primary keys, reports data problems without correcting them, and refuses to write into a non-empty database. Run it only against a restored **copy** of a `mysqldump`. `scripts/legacy-fixture.sql` holds the reconstructed legacy DDL plus dirty fixture data for exercising it.
+
+### Auth
+
+Auth.js v5 (`next-auth@beta`) with a Credentials provider and a JWT session — no session table. The session carries `role` and `collectorId`; passwords are the legacy PHP `$2y$` bcrypt hashes, verified by `bcryptjs` and never reset.
+
+The config is split on purpose. `lib/auth.config.ts` is the half that touches no database, so `proxy.ts` can read the session cookie on every request without bundling Prisma; `lib/auth.ts` adds the provider and is the only module that queries `users`.
+
+Authorization runs in three layers, and only the third existed in the legacy app:
+
+1. **`proxy.ts`** — optimistic, cookie-only. Redirects to `/login` without a session and rewrites a role that overreaches to `/denied`, which calls `forbidden()` so the answer is a real 403 at the requested URL.
+2. **`lib/session.ts`** — `requireUser()` / `requireAdmin()` / `requireCollector()`, called at the top of every page. **This is the layer that protects data**; it holds even if the proxy is bypassed. Server Actions must call one too. Route access is not row access — a screen both roles can open must also check that the row belongs to the caller.
+3. **`app-shell.tsx`** — the `nav` filter. Presentation only.
+
+`lib/roles.ts` is the shared route policy (`canAccess`, `roleHome`, `stripLocale`), with tests. Add a route there and to the page's own guard, not to one or the other.
+
+`forbidden()` / `unauthorized()` need `experimental.authInterrupts` in `next.config.ts`. They render through Next's own error shell rather than `app/[locale]/layout.tsx`, which is why `AuthNotice` carries its own `ThemeSync`.
+
+`trustHost: true` is required: without it Auth.js answers `UntrustedHost` on every production request. Dev mode hides this — check auth changes with `pnpm build && pnpm start`.
 
 ### i18n
 
