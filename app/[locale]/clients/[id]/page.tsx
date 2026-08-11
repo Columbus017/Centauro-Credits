@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { AppShell } from '@/components/app-shell'
+import { ActionButton } from '@/components/forms/action-button'
 import { PageHeader } from '@/components/page-header'
 import { StatCard } from '@/components/stat-card'
 import { StatusBadge } from '@/components/status-badge'
@@ -22,6 +23,7 @@ import { formatDate, formatQ, formatQCents } from '@/lib/format'
 import { listCredits } from '@/lib/queries/credits'
 import { getCustomer } from '@/lib/queries/entities'
 import { listPayments } from '@/lib/queries/payments'
+import { setCustomerActive } from '@/lib/actions/entities'
 import { requireAdmin } from '@/lib/session'
 
 export default async function ClientDetailPage({
@@ -61,10 +63,22 @@ export default async function ClientDetailPage({
         title={customer.name}
         breadcrumbs={[{ label: t('title'), href: '/clients' }, { label: customer.name }]}
         actions={
-          <LinkButton variant="outline" size="lg" href="/clients">
-            <ArrowLeft className="size-4" />
-            {tc('back')}
-          </LinkButton>
+          <>
+            <LinkButton variant="outline" size="lg" href="/clients">
+              <ArrowLeft className="size-4" />
+              {tc('back')}
+            </LinkButton>
+            <ActionButton
+              action={setCustomerActive}
+              fields={{ id: customer.id, active: String(!customer.active) }}
+              size="lg"
+            >
+              {customer.active ? tc('deactivate') : tc('activate')}
+            </ActionButton>
+            <LinkButton size="lg" href={`/clients/${customer.id}/edit`}>
+              {tc('edit')}
+            </LinkButton>
+          </>
         }
       />
 

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { AppShell } from '@/components/app-shell'
+import { ActionButton } from '@/components/forms/action-button'
 import { PageHeader } from '@/components/page-header'
 import { StatCard } from '@/components/stat-card'
 import { StatusBadge } from '@/components/status-badge'
@@ -19,6 +20,7 @@ import {
 import { Link } from '@/i18n/navigation'
 import { formatNumber, formatQ } from '@/lib/format'
 import { getRoute, listCustomersWithPortfolio } from '@/lib/queries/entities'
+import { setRouteActive } from '@/lib/actions/entities'
 import { requireAdmin } from '@/lib/session'
 
 export default async function RouteDetailPage({
@@ -44,10 +46,22 @@ export default async function RouteDetailPage({
         title={route.name}
         breadcrumbs={[{ label: t('title'), href: '/routes' }, { label: route.name }]}
         actions={
-          <LinkButton variant="outline" size="lg" href="/routes">
-            <ArrowLeft className="size-4" />
-            {tc('back')}
-          </LinkButton>
+          <>
+            <LinkButton variant="outline" size="lg" href="/routes">
+              <ArrowLeft className="size-4" />
+              {tc('back')}
+            </LinkButton>
+            <ActionButton
+              action={setRouteActive}
+              fields={{ id: route.id, active: String(!route.active) }}
+              size="lg"
+            >
+              {route.active ? tc('deactivate') : tc('activate')}
+            </ActionButton>
+            <LinkButton size="lg" href={`/routes/${route.id}/edit`}>
+              {tc('edit')}
+            </LinkButton>
+          </>
         }
       />
 

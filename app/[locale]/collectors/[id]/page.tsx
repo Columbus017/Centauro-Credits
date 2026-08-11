@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { AppShell } from '@/components/app-shell'
+import { ActionButton } from '@/components/forms/action-button'
 import { PageHeader } from '@/components/page-header'
 import { StatCard } from '@/components/stat-card'
 import { StatusBadge } from '@/components/status-badge'
@@ -21,6 +22,7 @@ import { formatDate, formatQ } from '@/lib/format'
 import { listCredits } from '@/lib/queries/credits'
 import { listDailyCloses } from '@/lib/queries/daily-close'
 import { getCollector, listRoutes } from '@/lib/queries/entities'
+import { setCollectorActive } from '@/lib/actions/entities'
 import { requireAdmin } from '@/lib/session'
 
 export default async function CollectorDetailPage({
@@ -57,10 +59,22 @@ export default async function CollectorDetailPage({
           { label: collector.name },
         ]}
         actions={
-          <LinkButton variant="outline" size="lg" href="/collectors">
-            <ArrowLeft className="size-4" />
-            {tc('back')}
-          </LinkButton>
+          <>
+            <LinkButton variant="outline" size="lg" href="/collectors">
+              <ArrowLeft className="size-4" />
+              {tc('back')}
+            </LinkButton>
+            <ActionButton
+              action={setCollectorActive}
+              fields={{ id: collector.id, active: String(!collector.active) }}
+              size="lg"
+            >
+              {collector.active ? tc('deactivate') : tc('activate')}
+            </ActionButton>
+            <LinkButton size="lg" href={`/collectors/${collector.id}/edit`}>
+              {tc('edit')}
+            </LinkButton>
+          </>
         }
       />
 

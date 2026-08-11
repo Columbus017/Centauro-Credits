@@ -49,6 +49,21 @@
       "action": "Iniciar sesión"
     }
   },
+  "errors": {
+    "checkFields": "Revise los campos marcados.",
+    "required": "Este campo es obligatorio.",
+    "tooLong": "El valor es demasiado largo.",
+    "invalid": "El valor no es válido.",
+    "invalidDate": "Ingrese una fecha válida.",
+    "invalidAmount": "Ingrese un monto válido (máximo dos decimales).",
+    "mustBePositive": "El monto debe ser mayor que cero.",
+    "overpayment": "El pago excede el saldo pendiente del crédito.",
+    "notFound": "El registro ya no existe.",
+    "duplicateClose": "Ese cobrador ya tiene un cierre registrado para esa fecha.",
+    "creditNotOnRound": "Uno de los créditos no pertenece a la ruta de ese cobrador.",
+    "duplicateUsername": "Ese usuario ya existe.",
+    "unknown": "Ocurrió un error inesperado."
+  },
   "status": {
     "active": "Activo",
     "inactive": "Inactivo",
@@ -90,7 +105,12 @@
     "days": "días",
     "locale": "Idioma",
     "spanish": "Español",
-    "english": "Inglés"
+    "english": "Inglés",
+    "saving": "Guardando…",
+    "deactivate": "Desactivar",
+    "activate": "Activar",
+    "delete": "Eliminar",
+    "confirmDelete": "Esto oculta el crédito y su historial de pagos. ¿Continuar?"
   },
   "login": {
     "title": "Bienvenido",

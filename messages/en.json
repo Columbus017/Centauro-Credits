@@ -49,6 +49,21 @@
       "action": "Sign in"
     }
   },
+  "errors": {
+    "checkFields": "Check the highlighted fields.",
+    "required": "This field is required.",
+    "tooLong": "That value is too long.",
+    "invalid": "That value is not valid.",
+    "invalidDate": "Enter a valid date.",
+    "invalidAmount": "Enter a valid amount (at most two decimals).",
+    "mustBePositive": "The amount must be greater than zero.",
+    "overpayment": "The payment is more than the credit still owes.",
+    "notFound": "That record no longer exists.",
+    "duplicateClose": "That collector already has a close for that date.",
+    "creditNotOnRound": "One of the credits is not on that collector’s round.",
+    "duplicateUsername": "That username is already taken.",
+    "unknown": "Something went wrong."
+  },
   "status": {
     "active": "Active",
     "inactive": "Inactive",
@@ -90,7 +105,12 @@
     "days": "days",
     "locale": "Language",
     "spanish": "Spanish",
-    "english": "English"
+    "english": "English",
+    "saving": "Saving…",
+    "deactivate": "Deactivate",
+    "activate": "Activate",
+    "delete": "Delete",
+    "confirmDelete": "This hides the credit and its payment history. Continue?"
   },
   "login": {
     "title": "Welcome back",
