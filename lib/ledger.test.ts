@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  dailyCloseCash,
   type LedgerRow,
   outstandingCents,
   payoffState,
@@ -186,5 +187,26 @@ describe('payoffState', () => {
       dated(row(3, 'payment', 0), '2024-03-01'),
     ]
     expect(payoffState('2024-01-01', rows).cancelledAt).toBe('2024-03-01')
+  })
+})
+
+describe('dailyCloseCash', () => {
+  it('is (base + collected) - (disbursed + surplus)', () => {
+    expect(
+      dailyCloseCash({ base: 1000, collected: 300, disbursed: 500, surplus: 100 }),
+    ).toBe(700)
+  })
+
+  it('goes negative when a collector paid out more than they took', () => {
+    expect(
+      dailyCloseCash({ base: 0, collected: 100, disbursed: 400, surplus: 0 }),
+    ).toBe(-300)
+  })
+
+  it('does not drift on amounts a float would round', () => {
+    // 0.1 + 0.2 - 0.3 is not 0 in binary floating point; in centavos it is.
+    expect(
+      dailyCloseCash({ base: 0.1, collected: 0.2, disbursed: 0.3, surplus: 0 }),
+    ).toBe(0)
   })
 })

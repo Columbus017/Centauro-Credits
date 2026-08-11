@@ -71,6 +71,19 @@ Authorization runs in three layers, and only the third existed in the legacy app
 
 `trustHost: true` is required: without it Auth.js answers `UntrustedHost` on every production request. Dev mode hides this — check auth changes with `pnpm build && pnpm start`.
 
+### Reads and writes
+
+Screens never touch Prisma directly. `lib/queries/*` returns plain row shapes (numbers and `YYYY-MM-DD` strings, never `Decimal` or `Date`), and `lib/actions/*` holds every Server Action.
+
+- **Derive, don't read.** A credit's `outstanding`, `status` and payment tallies come from walking its ledger through `lib/ledger.ts`, not from `ledger_entries.running_balance`. The stored column is what the ETL checks itself against and what a printed receipt recorded; the derivation is what a screen shows, so the list and the detail can never disagree.
+- **Scope belongs in the query.** `Scope = { collectorId: number | null }` threads through every read; `null` means "everything" and only an admin passes it. A collector asking for someone else's credit gets nothing back rather than a filtered-out row — which is why those URLs answer 404, not 403.
+- **One write path per rule.** Everything that touches a credit's ledger ends in `syncCredit()` in `lib/actions/credits.ts`: re-walk, correct any moved running balance, re-derive `cancelled_at` and `bad_record`. The legacy app open-coded that walk in four PHP files and they drifted.
+- **Errors are message keys.** An action has no request locale, so it returns keys under the `errors` namespace and the form translates them. `lib/actions/form-state.ts` is the client-safe half of that contract — `lib/actions/shared.ts` is `server-only`.
+- **`revalidatePath` needs the segment**: `/[locale]/credits`, with `type: 'page'`, which covers both locales.
+- `SelectField` is a Server Component. Pass it `onValueChange` only from a Client Component; forwarding a handler unconditionally breaks every server-rendered page that uses a select.
+
+"Today" comes from `lib/clock.ts`, in `America/Guatemala` — never the container's zone. The development fixture in `lib/mock-data.ts` slides its dates to meet it, so `pnpm db:seed` always produces a demonstrable book.
+
 ### i18n
 
 `next-intl` with `es` (default) and `en`. All routes live under `app/[locale]/`.
