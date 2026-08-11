@@ -16,6 +16,12 @@ The visual design comes from `../centauro_assets/uploads/lending-administration-
 - `pnpm build` — production build
 - `pnpm start` — run the production build
 - `pnpm lint` — run ESLint (flat config via `eslint.config.mjs`)
+- `pnpm test` — Vitest (`lib/**/*.test.ts`); `pnpm typecheck` — `tsc --noEmit`
+- `pnpm db:up` — local Postgres 16 via `docker-compose.dev.yml` (host port **5433**; 5432 is often taken)
+- `pnpm db:migrate` — create/apply a Prisma migration; `pnpm db:seed` — load `lib/mock-data.ts`
+- `pnpm db:migrate-legacy` — the one-shot MySQL → Postgres ETL (see below)
+
+Copy `.env.example` to `.env` before any database command.
 
 Package manager is pnpm (`packageManager: pnpm@11.20.0`). Single-package pnpm workspace (`pnpm-workspace.yaml`), not a monorepo. Native build scripts must be allowlisted under `allowBuilds:` in `pnpm-workspace.yaml` or `pnpm install` fails.
 
@@ -28,6 +34,22 @@ There is no test setup in this project yet.
 - Styling is Tailwind CSS v4, CSS-first — no `tailwind.config`. The whole token system (oklch light/dark palettes, sidebar/chart/status tokens) lives in `app/globals.css`.
 - UI is shadcn `base-nova` over `@base-ui/react` in `components/ui/`, with `lucide-react` icons and `recharts` for charts. `components.json` configures the shadcn CLI.
 - Theme: the `dark` class on `<html>` is owned by the DOM, set by an inline anti-FOUC script in `app/[locale]/layout.tsx` before hydration and persisted to `localStorage['centauro-theme']`. `components/theme-toggle.tsx` reads it via `useSyncExternalStore` + `MutationObserver` — do not mirror it into `useState`.
+
+### Database
+
+PostgreSQL 16 through Prisma 7. Three things about Prisma 7 differ from older versions you may know:
+
+- The generator is **`prisma-client`** (not `prisma-client-js`) and emits to `lib/generated/prisma/`, which is gitignored and rebuilt by the `postinstall` hook. Import from `@/lib/generated/prisma/client`.
+- The connection URL lives in **`prisma.config.ts`**, not in a `datasource` block or `package.json`.
+- The client needs a **driver adapter**: `new PrismaClient({ adapter: new PrismaPg({ connectionString }) })`. `lib/prisma-client.ts` is the only place that constructs one.
+
+Use `db` from `@/lib/db` in application code — it is `server-only` and keeps one pooled client across hot reloads. Plain Node scripts (the seed, the ETL) must call `createPrismaClient()` from `@/lib/prisma-client` instead, since `server-only` throws outside the Next bundler.
+
+**All ledger arithmetic goes through `lib/ledger.ts`.** Money is handled there in integer centavos — the legacy columns were floats and the drift is visible in the data. Nothing else should re-derive a running balance, a payoff total, or the bad-record flag; the legacy app copy-pasted that math into four PHP files and they drifted apart.
+
+Schema conventions: tables and columns are `snake_case` via `@@map`/`@map`, money is `Decimal(12,2)`, dates that carry no time are `@db.Date` (build them with `isoDate()` from `@/lib/db-utils`, never `new Date(iso)`), and audit columns are `timestamptz`. The old `state`/`cancel`/`balpay` integer flags are gone — a row records *when* something happened (`voided_at`, `cancelled_at`, `deleted_at`).
+
+`prisma/seed.ts` loads development fixtures from `lib/mock-data.ts` and wipes every table first. The production import is `scripts/migrate-from-mysql.ts`, which is a different thing entirely: it preserves original primary keys, reports data problems without correcting them, and refuses to write into a non-empty database. Run it only against a restored **copy** of a `mysqldump`. `scripts/legacy-fixture.sql` holds the reconstructed legacy DDL plus dirty fixture data for exercising it.
 
 ### i18n
 
