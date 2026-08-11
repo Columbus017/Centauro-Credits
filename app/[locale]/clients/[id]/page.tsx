@@ -19,24 +19,10 @@ import {
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
 import { formatDate, formatQ, formatQCents } from '@/lib/format'
-import {
-  collectorById,
-  commerceById,
-  creditsForCustomer,
-  customerById,
-  customers,
-  fullName,
-  ledgerEntries,
-  routeById,
-} from '@/lib/mock-data'
-import { routing } from '@/i18n/routing'
+import { listCredits } from '@/lib/queries/credits'
+import { getCustomer } from '@/lib/queries/entities'
+import { listPayments } from '@/lib/queries/payments'
 import { requireAdmin } from '@/lib/session'
-
-export function generateStaticParams() {
-  return routing.locales.flatMap((locale) =>
-    customers.map((customer) => ({ locale, id: String(customer.id) })),
-  )
-}
 
 export default async function ClientDetailPage({
   params,
@@ -45,36 +31,35 @@ export default async function ClientDetailPage({
   setRequestLocale(locale)
   await requireAdmin()
 
-  const customer = customerById(Number(id))
+  const customer = await getCustomer(Number(id))
   if (!customer) notFound()
 
   const t = await getTranslations('clients')
   const tc = await getTranslations('common')
   const tCredits = await getTranslations('credits')
 
-  const route = routeById(customer.routeId)
-  const collector = collectorById(route?.collectorId ?? null)
-  const business = commerceById(customer.commerceId)
-  const own = creditsForCustomer(customer.id)
-  const live = own.filter((c) => c.cancelledAt === null)
-  const balance = live.reduce((sum, c) => sum + c.outstanding, 0)
-
-  const payments = ledgerEntries
-    .filter(
-      (entry) =>
-        entry.kind === 'payment' && own.some((credit) => credit.id === entry.creditId),
-    )
-    .sort((a, b) => b.entryDate.localeCompare(a.entryDate) || b.id - a.id)
+  const [own, payments] = await Promise.all([
+    listCredits({ collectorId: null }, { customerId: customer.id }),
+    listPayments({ collectorId: null }, { customerId: customer.id }),
+  ])
+  const live = own.filter((credit) => credit.cancelledAt === null)
+  const balance = live.reduce((sum, credit) => sum + credit.outstanding, 0)
 
   const totalPaid = payments
-    .filter((entry) => !entry.voided)
-    .reduce((sum, entry) => sum + entry.amount, 0)
+    .filter((payment) => !payment.voided)
+    .reduce((sum, payment) => sum + payment.amount, 0)
+
+  // "Client since" is the day of their first credit, not the row's `created_at`:
+  // the legacy `customer` table records no creation date, so after the ETL every
+  // migrated client would otherwise claim to have joined on the migration day.
+  const since =
+    own.map((credit) => credit.startDate).sort()[0] ?? customer.createdAt
 
   return (
-    <AppShell title={fullName(customer)}>
+    <AppShell title={customer.name}>
       <PageHeader
-        title={fullName(customer)}
-        breadcrumbs={[{ label: t('title'), href: '/clients' }, { label: fullName(customer) }]}
+        title={customer.name}
+        breadcrumbs={[{ label: t('title'), href: '/clients' }, { label: customer.name }]}
         actions={
           <LinkButton variant="outline" size="lg" href="/clients">
             <ArrowLeft className="size-4" />
@@ -90,21 +75,21 @@ export default async function ClientDetailPage({
         </span>
         <div className="mr-auto min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold">{fullName(customer)}</span>
+            <span className="font-semibold">{customer.name}</span>
             <StatusBadge status={customer.active ? 'active' : 'inactive'} />
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Building2 className="size-3.5" />
-              {business?.name ?? '—'}
+              {customer.commerceName}
             </span>
             <span className="flex items-center gap-1">
               <RouteIcon className="size-3.5" />
-              {route?.name ?? tc('none')}
+              {customer.routeName}
             </span>
             <span className="flex items-center gap-1">
               <UserCog className="size-3.5" />
-              {collector ? fullName(collector) : tc('none')}
+              {customer.collectorName}
             </span>
             <span className="flex items-center gap-1">
               <Phone className="size-3.5" />
@@ -122,7 +107,7 @@ export default async function ClientDetailPage({
         <StatCard label={t('detail.activeCredits')} value={String(live.length)} />
         <StatCard label={t('detail.totalBalance')} value={formatQ(balance, locale)} />
         <StatCard label={t('detail.totalPaid')} value={formatQ(totalPaid, locale)} />
-        <StatCard label={t('detail.since')} value={formatDate(customer.createdAt, locale)} />
+        <StatCard label={t('detail.since')} value={formatDate(since, locale)} />
       </div>
 
       <Tabs defaultValue="credits">
@@ -208,28 +193,25 @@ export default async function ClientDetailPage({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {payments.map((entry) => {
-                        const credit = own.find((c) => c.id === entry.creditId)
-                        return (
-                          <TableRow key={entry.id}>
-                            <TableCell className="pl-4">
-                              {formatDate(entry.entryDate, locale)}
-                            </TableCell>
-                            <TableCell className="font-mono text-xs text-muted-foreground">
-                              {credit?.code ?? '—'}
-                            </TableCell>
-                            <TableCell className="text-right font-mono tabular-nums">
-                              {formatQCents(entry.amount, locale)}
-                            </TableCell>
-                            <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
-                              {formatQCents(entry.runningBalance, locale)}
-                            </TableCell>
-                            <TableCell className="pr-4">
-                              <StatusBadge status={entry.voided ? 'voided' : 'posted'} />
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
+                      {payments.map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell className="pl-4">
+                            {formatDate(payment.date, locale)}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground">
+                            {payment.creditCode}
+                          </TableCell>
+                          <TableCell className="text-right font-mono tabular-nums">
+                            {formatQCents(payment.amount, locale)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
+                            {formatQCents(payment.runningBalance, locale)}
+                          </TableCell>
+                          <TableCell className="pr-4">
+                            <StatusBadge status={payment.voided ? 'voided' : 'posted'} />
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </div>

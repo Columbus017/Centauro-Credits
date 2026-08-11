@@ -18,7 +18,9 @@ import {
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
 import { formatDate, formatNumber, formatQ, formatQCents } from '@/lib/format'
-import { collectors, fullName, paymentRows } from '@/lib/mock-data'
+import { today } from '@/lib/clock'
+import { listCollectors } from '@/lib/queries/entities'
+import { listPayments } from '@/lib/queries/payments'
 import { requireAdmin } from '@/lib/session'
 
 export default async function PaymentsPage({ params }: PageProps<'/[locale]'>) {
@@ -29,17 +31,19 @@ export default async function PaymentsPage({ params }: PageProps<'/[locale]'>) {
   const t = await getTranslations('payments')
   const tc = await getTranslations('common')
 
-  const rows = paymentRows()
+  const [rows, collectors] = await Promise.all([
+    listPayments({ collectorId: null }),
+    listCollectors(),
+  ])
   const posted = rows.filter((row) => !row.voided)
   const voided = rows.length - posted.length
 
   const total = posted.reduce((sum, row) => sum + row.amount, 0)
   const average = posted.length > 0 ? total / posted.length : 0
 
-  // The most recent day on the book stands in for "today" while data is mocked.
-  const latestDate = posted[0]?.date ?? ''
-  const today = posted
-    .filter((row) => row.date === latestDate)
+  const asOf = today()
+  const collectedToday = posted
+    .filter((row) => row.date === asOf)
     .reduce((sum, row) => sum + row.amount, 0)
 
   return (
@@ -47,7 +51,7 @@ export default async function PaymentsPage({ params }: PageProps<'/[locale]'>) {
       <PageHeader title={t('title')} description={t('description')} />
 
       <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <SummaryStat label={t('summary.today')} value={formatQ(today, locale)} />
+        <SummaryStat label={t('summary.today')} value={formatQ(collectedToday, locale)} />
         <SummaryStat label={t('summary.count')} value={formatNumber(posted.length, locale)} />
         <SummaryStat label={t('summary.average')} value={formatQ(average, locale)} />
         <SummaryStat
@@ -67,7 +71,7 @@ export default async function PaymentsPage({ params }: PageProps<'/[locale]'>) {
               { value: 'all', label: t('allCollectors') },
               ...collectors.map((collector) => ({
                 value: String(collector.id),
-                label: fullName(collector),
+                label: collector.name,
               })),
             ]}
           />

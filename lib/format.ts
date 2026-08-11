@@ -100,6 +100,34 @@ export function formatMonth(yearMonth: string, locale?: string) {
   )
 }
 
+const RELATIVE_UNITS = [
+  { unit: 'year', seconds: 31_536_000 },
+  { unit: 'month', seconds: 2_592_000 },
+  { unit: 'day', seconds: 86_400 },
+  { unit: 'hour', seconds: 3_600 },
+  { unit: 'minute', seconds: 60 },
+] as const
+
+/**
+ * `hace 2 h` — how long ago a timestamp was.
+ *
+ * Only for Server Components: the result is baked into the HTML at render
+ * time, and a client re-render against a later clock would disagree with it.
+ */
+export function formatRelative(iso: string | null, locale?: string, now = new Date()) {
+  if (!iso) return '—'
+
+  const elapsed = (now.getTime() - new Date(iso).getTime()) / 1000
+  const format = new Intl.RelativeTimeFormat(intlLocale(locale), { numeric: 'auto' })
+
+  for (const { unit, seconds } of RELATIVE_UNITS) {
+    if (Math.abs(elapsed) >= seconds) {
+      return format.format(-Math.round(elapsed / seconds), unit)
+    }
+  }
+  return format.format(-Math.round(elapsed), 'second')
+}
+
 /** Whole days between two `YYYY-MM-DD` dates. */
 export function daysBetween(fromISO: string, toISO: string) {
   const ms = parseISODate(toISO).getTime() - parseISODate(fromISO).getTime()

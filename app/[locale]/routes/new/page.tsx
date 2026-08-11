@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { collectors, fullName } from '@/lib/mock-data'
+import { collectorOptions } from '@/lib/queries/entities'
 import { requireAdmin } from '@/lib/session'
 
 export default async function NewRoutePage({ params }: PageProps<'/[locale]'>) {
@@ -26,7 +26,7 @@ export default async function NewRoutePage({ params }: PageProps<'/[locale]'>) {
   const t = await getTranslations('routes')
   const tc = await getTranslations('common')
 
-  const activeCollectors = collectors.filter((collector) => collector.active)
+  const collectors = await collectorOptions()
 
   return (
     <AppShell title={t('form.createTitle')}>
@@ -60,10 +60,7 @@ export default async function NewRoutePage({ params }: PageProps<'/[locale]'>) {
             <FormField label={tc('collector')} className="sm:col-span-2">
               <SelectField
                 className="h-10 w-full"
-                options={activeCollectors.map((collector) => ({
-                  value: String(collector.id),
-                  label: fullName(collector),
-                }))}
+                options={collectors}
               />
             </FormField>
             <FormField label={t('form.notes')} htmlFor="details" className="sm:col-span-2">

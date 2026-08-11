@@ -16,7 +16,8 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { formatPercent } from '@/lib/format'
-import { collectors, customers, fullName, INTEREST_RATE } from '@/lib/mock-data'
+import { DEFAULT_INTEREST_RATE } from '@/lib/ledger'
+import { collectorOptions, customerOptions } from '@/lib/queries/entities'
 import { requireAdmin } from '@/lib/session'
 
 export default async function NewCreditPage({ params }: PageProps<'/[locale]'>) {
@@ -27,9 +28,11 @@ export default async function NewCreditPage({ params }: PageProps<'/[locale]'>) 
   const t = await getTranslations('credits')
   const tc = await getTranslations('common')
 
-  const activeCustomers = customers.filter((customer) => customer.active)
-  const activeCollectors = collectors.filter((collector) => collector.active)
-  const ratePercent = formatPercent(INTEREST_RATE * 100, locale)
+  const [customers, collectors] = await Promise.all([
+    customerOptions(),
+    collectorOptions(),
+  ])
+  const ratePercent = formatPercent(DEFAULT_INTEREST_RATE * 100, locale)
 
   return (
     <AppShell title={t('form.createTitle')}>
@@ -63,7 +66,7 @@ export default async function NewCreditPage({ params }: PageProps<'/[locale]'>) 
               <FormField label={t('form.startDate')} htmlFor="start-date">
                 <Input id="start-date" type="date" className="h-10" />
               </FormField>
-              <CreditAmountFields interestRate={INTEREST_RATE} locale={locale} />
+              <CreditAmountFields interestRate={DEFAULT_INTEREST_RATE} locale={locale} />
             </CardContent>
           </Card>
         </div>
@@ -78,19 +81,13 @@ export default async function NewCreditPage({ params }: PageProps<'/[locale]'>) 
               <FormField label={tc('client')}>
                 <SelectField
                   className="h-10 w-full"
-                  options={activeCustomers.map((customer) => ({
-                    value: String(customer.id),
-                    label: fullName(customer),
-                  }))}
+                  options={customers}
                 />
               </FormField>
               <FormField label={tc('collector')}>
                 <SelectField
                   className="h-10 w-full"
-                  options={activeCollectors.map((collector) => ({
-                    value: String(collector.id),
-                    label: fullName(collector),
-                  }))}
+                  options={collectors}
                 />
               </FormField>
             </CardContent>

@@ -33,7 +33,7 @@ export function DailyCloseForm({
   collectors,
   locale,
 }: {
-  collectors: { id: number; name: string }[]
+  collectors: { value: string; label: string }[]
   locale: string
 }) {
   const t = useTranslations('dailyClose.form')
@@ -80,13 +80,7 @@ export function DailyCloseForm({
           </CardHeader>
           <CardContent className="grid gap-5 sm:grid-cols-2">
             <FormField label={t('collector')}>
-              <SelectField
-                className="h-10 w-full"
-                options={collectors.map((collector) => ({
-                  value: String(collector.id),
-                  label: collector.name,
-                }))}
-              />
+              <SelectField className="h-10 w-full" options={collectors} />
             </FormField>
             <FormField label={t('date')} htmlFor="close-date">
               <Input id="close-date" type="date" className="h-10" />

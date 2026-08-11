@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { GOOD_RECORD_DAYS, INTEREST_RATE } from '@/lib/mock-data'
+import { DEFAULT_INTEREST_RATE, GOOD_RECORD_DAYS } from '@/lib/ledger'
 import { requireAdmin } from '@/lib/session'
 
 export default async function AdminSettingsPage({ params }: PageProps<'/[locale]'>) {
@@ -46,7 +46,7 @@ export default async function AdminSettingsPage({ params }: PageProps<'/[locale]
               <Input
                 id="interest-rate"
                 className="h-10 font-mono"
-                defaultValue={`${INTEREST_RATE * 100}%`}
+                defaultValue={`${DEFAULT_INTEREST_RATE * 100}%`}
               />
             </FormField>
             <FormField

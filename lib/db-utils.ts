@@ -11,6 +11,33 @@ export function isoDate(iso: string) {
   return new Date(`${iso}T00:00:00.000Z`)
 }
 
+/**
+ * Reads a `@db.Date` column back as the `YYYY-MM-DD` string the screens use.
+ *
+ * The UTC part, to undo `isoDate()` exactly. `toISOString().slice(0, 10)` on a
+ * local-midnight date would give the previous day in Guatemala.
+ */
+export function fromDbDate(value: Date): string {
+  return value.toISOString().slice(0, 10)
+}
+
+export function fromDbDateOrNull(value: Date | null): string | null {
+  return value ? fromDbDate(value) : null
+}
+
+/**
+ * A `Decimal(12,2)` column as a plain number.
+ *
+ * Prisma hands `Decimal` back as an object; the screens and `lib/format.ts`
+ * work in numbers. Two decimals of quetzales are far inside what a double
+ * represents exactly, so the conversion is lossless — but arithmetic on the
+ * result is not, which is why every calculation goes through `lib/ledger.ts`
+ * in centavos instead.
+ */
+export function fromDbAmount(value: { toString(): string }): number {
+  return Number(value.toString())
+}
+
 /** Every table whose primary key the seed and the ETL insert explicitly. */
 const TABLES = [
   'commerce',

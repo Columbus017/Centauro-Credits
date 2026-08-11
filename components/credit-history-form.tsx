@@ -36,8 +36,8 @@ export function CreditHistoryForm({
   interestRate,
   locale,
 }: {
-  customers: { id: number; name: string }[]
-  collectors: { id: number; name: string }[]
+  customers: { value: string; label: string }[]
+  collectors: { value: string; label: string }[]
   interestRate: number
   locale: string
 }) {
@@ -194,19 +194,13 @@ export function CreditHistoryForm({
             <FormField label={tc('client')}>
               <SelectField
                 className="h-10 w-full"
-                options={customers.map((customer) => ({
-                  value: String(customer.id),
-                  label: customer.name,
-                }))}
+                options={customers}
               />
             </FormField>
             <FormField label={tc('collector')}>
               <SelectField
                 className="h-10 w-full"
-                options={collectors.map((collector) => ({
-                  value: String(collector.id),
-                  label: collector.name,
-                }))}
+                options={collectors}
               />
             </FormField>
 

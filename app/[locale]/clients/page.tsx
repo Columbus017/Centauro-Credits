@@ -19,18 +19,7 @@ import {
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
 import { formatQ, formatNumber } from '@/lib/format'
-import {
-  collectorById,
-  commerceById,
-  creditsForCustomer,
-  customerBalance,
-  customers,
-  daysSincePayment,
-  fullName,
-  GOOD_RECORD_DAYS,
-  routeById,
-  routes,
-} from '@/lib/mock-data'
+import { listCustomersWithPortfolio, listRoutes } from '@/lib/queries/entities'
 import { requireAdmin } from '@/lib/session'
 
 export default async function ClientsPage({ params }: PageProps<'/[locale]'>) {
@@ -42,25 +31,10 @@ export default async function ClientsPage({ params }: PageProps<'/[locale]'>) {
   const tc = await getTranslations('common')
   const tStatus = await getTranslations('status')
 
-  const rows = customers.map((customer) => {
-    const route = routeById(customer.routeId)
-    const collector = collectorById(route?.collectorId ?? null)
-    const own = creditsForCustomer(customer.id)
-    const live = own.filter((c) => c.cancelledAt === null)
-
-    return {
-      customer,
-      commerceName: commerceById(customer.commerceId)?.name ?? '—',
-      routeName: route?.name ?? tc('none'),
-      collectorName: collector ? fullName(collector) : tc('none'),
-      balance: customerBalance(customer.id),
-      activeCredits: live.length,
-      atRisk: live.some((c) => daysSincePayment(c) > GOOD_RECORD_DAYS),
-    }
-  })
+  const [rows, routes] = await Promise.all([listCustomersWithPortfolio(), listRoutes()])
 
   const totalBalance = rows.reduce((sum, row) => sum + row.balance, 0)
-  const activeCount = rows.filter((row) => row.customer.active).length
+  const activeCount = rows.filter((row) => row.active).length
   const atRiskCount = rows.filter((row) => row.atRisk).length
 
   return (
@@ -77,7 +51,7 @@ export default async function ClientsPage({ params }: PageProps<'/[locale]'>) {
       />
 
       <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <SummaryStat label={t('summary.total')} value={formatNumber(customers.length, locale)} />
+        <SummaryStat label={t('summary.total')} value={formatNumber(rows.length, locale)} />
         <SummaryStat label={t('summary.active')} value={formatNumber(activeCount, locale)} />
         <SummaryStat
           label={t('summary.atRisk')}
@@ -131,22 +105,17 @@ export default async function ClientsPage({ params }: PageProps<'/[locale]'>) {
               </TableHeader>
               <TableBody>
                 {rows.map((row) => (
-                  <TableRow key={row.customer.id}>
+                  <TableRow key={row.id}>
                     <TableCell className="pl-4">
-                      <Link
-                        href={`/clients/${row.customer.id}`}
-                        className="flex items-center gap-3"
-                      >
+                      <Link href={`/clients/${row.id}`} className="flex items-center gap-3">
                         <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
-                          {row.customer.firstName[0]}
-                          {row.customer.lastName[0]}
+                          {row.firstName[0]}
+                          {row.lastName[0]}
                         </span>
                         <span>
-                          <span className="block font-medium hover:underline">
-                            {fullName(row.customer)}
-                          </span>
+                          <span className="block font-medium hover:underline">{row.name}</span>
                           <span className="block font-mono text-xs text-muted-foreground">
-                            {row.customer.dpi}
+                            {row.dpi}
                           </span>
                         </span>
                       </Link>
@@ -161,13 +130,13 @@ export default async function ClientsPage({ params }: PageProps<'/[locale]'>) {
                       {formatQ(row.balance, locale)}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={row.customer.active ? 'active' : 'inactive'} />
+                      <StatusBadge status={row.active ? 'active' : 'inactive'} />
                     </TableCell>
                     <TableCell className="pr-4 text-right">
                       <LinkButton
                         variant="ghost"
                         size="sm"
-                        href={`/clients/${row.customer.id}`}
+                        href={`/clients/${row.id}`}
                         >
                         {tc('view')}
                       </LinkButton>

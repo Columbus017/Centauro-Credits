@@ -11,16 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { formatDate } from '@/lib/format'
-import { recentReports, reportDefs } from '@/lib/mock-data'
+import { reportDefs } from '@/lib/reports'
 import { requireAdmin } from '@/lib/session'
 
 const filterIcons = {
@@ -36,7 +27,6 @@ export default async function ReportsPage({ params }: PageProps<'/[locale]'>) {
   await requireAdmin()
 
   const t = await getTranslations('reports')
-  const tc = await getTranslations('common')
 
   return (
     <AppShell title={t('title')}>
@@ -76,48 +66,6 @@ export default async function ReportsPage({ params }: PageProps<'/[locale]'>) {
         ))}
       </div>
 
-      <Card className="py-0">
-        <CardHeader className="pt-6">
-          <CardTitle>{t('recent')}</CardTitle>
-        </CardHeader>
-        <CardContent className="px-0 pb-0">
-          {recentReports.length === 0 ? (
-            <p className="px-6 pb-6 text-sm text-muted-foreground">{t('recentEmpty')}</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="pl-6">{tc('name')}</TableHead>
-                    <TableHead>{t('generatedBy')}</TableHead>
-                    <TableHead>{tc('date')}</TableHead>
-                    <TableHead className="pr-6 text-right">{tc('actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentReports.map((report) => (
-                    <TableRow key={report.id}>
-                      <TableCell className="pl-6 font-medium">
-                        {t(`defs.${report.reportId}.title`)}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{report.by}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDate(report.date, locale)}
-                      </TableCell>
-                      <TableCell className="pr-6 text-right">
-                        <Button variant="ghost" size="sm">
-                          <Download className="size-3.5" />
-                          {report.size}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </AppShell>
   )
 }

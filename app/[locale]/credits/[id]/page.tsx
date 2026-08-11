@@ -1,5 +1,5 @@
 import { ArrowLeft, CreditCard, Route as RouteIcon, UserCog } from 'lucide-react'
-import { forbidden, notFound } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { AppShell } from '@/components/app-shell'
@@ -19,24 +19,9 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
-import { routing } from '@/i18n/routing'
 import { daysBetween, formatDate, formatPercent, formatQ, formatQCents } from '@/lib/format'
-import {
-  collectorById,
-  creditById,
-  credits,
-  customerById,
-  entriesForCredit,
-  fullName,
-  routeById,
-} from '@/lib/mock-data'
+import { getCredit, getCreditLedger } from '@/lib/queries/credits'
 import { requireUser } from '@/lib/session'
-
-export function generateStaticParams() {
-  return routing.locales.flatMap((locale) =>
-    credits.map((credit) => ({ locale, id: String(credit.id) })),
-  )
-}
 
 export default async function CreditDetailPage({
   params,
@@ -51,25 +36,22 @@ export default async function CreditDetailPage({
   const isAdmin = role === 'admin'
   const backHref = isAdmin ? '/credits' : '/field/collect'
 
-  const credit = creditById(Number(id))
+  // Reaching the route is not the same as owning the row: the scope goes into
+  // the query, so a collector changing the number in the URL gets nothing back
+  // rather than another collector's client.
+  const credit = await getCredit(Number(id), {
+    collectorId: isAdmin ? null : collectorId,
+  })
   if (!credit) notFound()
-
-  // Reaching the route is not the same as owning the row: without this a
-  // collector reads any credit in the book by changing the number in the URL.
-  // Phase 4 moves the check into the query itself.
-  if (!isAdmin && credit.collectorId !== collectorId) forbidden()
 
   const t = await getTranslations('credits')
   const tc = await getTranslations('common')
   const tPayments = await getTranslations('payments')
 
-  const customer = customerById(credit.customerId)
-  const collector = collectorById(credit.collectorId)
-  const route = customer ? routeById(customer.routeId) : null
-  const customerName = customer ? fullName(customer) : '—'
+  const customerName = credit.customerName
 
   // Newest first, matching the legacy statement view.
-  const entries = [...entriesForCredit(credit.id)].reverse()
+  const entries = await getCreditLedger(credit.id)
 
   const paid = credit.totalDue - credit.outstanding
   const progress = credit.totalDue > 0 ? Math.round((paid / credit.totalDue) * 100) : 0
@@ -122,11 +104,11 @@ export default async function CreditDetailPage({
           <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <RouteIcon className="size-3.5" />
-              {route?.name ?? tc('none')}
+              {credit.routeName}
             </span>
             <span className="flex items-center gap-1">
               <UserCog className="size-3.5" />
-              {collector ? fullName(collector) : tc('none')}
+              {credit.collectorName}
             </span>
             <span>
               {t('detail.disbursedOn')} {formatDate(credit.startDate, locale)}

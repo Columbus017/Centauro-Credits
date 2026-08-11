@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { commerce, routes } from '@/lib/mock-data'
+import { commerceOptions, routeOptions } from '@/lib/queries/entities'
 import { requireAdmin } from '@/lib/session'
 
 export default async function NewClientPage({ params }: PageProps<'/[locale]'>) {
@@ -26,7 +26,7 @@ export default async function NewClientPage({ params }: PageProps<'/[locale]'>) 
   const t = await getTranslations('clients')
   const tc = await getTranslations('common')
 
-  const activeRoutes = routes.filter((route) => route.active)
+  const [routes, businesses] = await Promise.all([routeOptions(), commerceOptions()])
 
   return (
     <AppShell title={t('form.createTitle')}>
@@ -98,19 +98,13 @@ export default async function NewClientPage({ params }: PageProps<'/[locale]'>) 
               <FormField label={tc('route')}>
                 <SelectField
                   className="h-10 w-full"
-                  options={activeRoutes.map((route) => ({
-                    value: String(route.id),
-                    label: `${route.code} · ${route.name}`,
-                  }))}
+                  options={routes}
                 />
               </FormField>
               <FormField label={tc('commerce')}>
                 <SelectField
                   className="h-10 w-full"
-                  options={commerce.map((business) => ({
-                    value: String(business.id),
-                    label: business.name,
-                  }))}
+                  options={businesses}
                 />
               </FormField>
             </CardContent>

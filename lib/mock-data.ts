@@ -10,9 +10,38 @@
  */
 
 import { daysBetween } from '@/lib/format'
+import { today } from '@/lib/clock'
 import type { Status } from '@/components/status-badge'
 
 export const INTEREST_RATE = 0.15
+
+/**
+ * The day the fixture below was written against. Every date in it is relative
+ * to this one.
+ */
+const FIXTURE_TODAY = '2024-05-28'
+
+/**
+ * Slides a fixture date forward so the book sits in the present.
+ *
+ * The seeds are written as literal dates because that is readable, but a
+ * fixture frozen in 2024 makes every screen that measures against *now* —
+ * delinquency, the aging buckets, "collected today", the collector's day —
+ * degenerate: every credit reads as months overdue and no day has any
+ * activity. Shifting by a constant offset keeps every interval intact (the
+ * 70-day bad record is still 70 days) while placing the whole book relative
+ * to today, so `pnpm db:seed` produces a demonstrable database whenever it is
+ * run.
+ *
+ * Only the development fixture does this. `scripts/migrate-from-mysql.ts`
+ * carries real dates across untouched.
+ */
+function shift(iso: string, asOf = today()): string {
+  const offsetDays = daysBetween(FIXTURE_TODAY, asOf)
+  const date = new Date(`${iso}T00:00:00.000Z`)
+  date.setUTCDate(date.getUTCDate() + offsetDays)
+  return date.toISOString().slice(0, 10)
+}
 
 /** Payoff is graced for 30 days; beyond that the client gets a bad record. */
 export const GOOD_RECORD_DAYS = 30
@@ -266,7 +295,15 @@ function round2(value: number) {
  * server will: origination row first, running balance recomputed over
  * non-voided payments only, payoff detection and the 30-day record flag.
  */
-function buildCredit(seed: CreditSeed, nextEntryId: () => number) {
+function buildCredit(rawSeed: CreditSeed, nextEntryId: () => number) {
+  const seed: CreditSeed = {
+    ...rawSeed,
+    startDate: shift(rawSeed.startDate),
+    payments: rawSeed.payments.map((payment) => ({
+      ...payment,
+      date: shift(payment.date),
+    })),
+  }
   const totalDue = round2(seed.principal * (1 + INTEREST_RATE))
 
   const entries: LedgerEntry[] = [
@@ -364,7 +401,7 @@ export type DailyClose = {
   disbursed: number
 }
 
-export const dailyCloses: DailyClose[] = [
+const dailyCloseSeeds: DailyClose[] = [
   { id: 1, collectorId: 1, closeDate: '2024-05-27', collected: 4820, base: 1500, surplus: 620, disbursed: 2700 },
   { id: 2, collectorId: 2, closeDate: '2024-05-27', collected: 3910, base: 1200, surplus: 410, disbursed: 1800 },
   { id: 3, collectorId: 3, closeDate: '2024-05-27', collected: 5240, base: 1500, surplus: 740, disbursed: 3200 },
@@ -374,6 +411,11 @@ export const dailyCloses: DailyClose[] = [
   { id: 7, collectorId: 3, closeDate: '2024-05-26', collected: 4870, base: 1500, surplus: 670, disbursed: 2800 },
   { id: 8, collectorId: 4, closeDate: '2024-05-26', collected: 3140, base: 1000, surplus: 340, disbursed: 1200 },
 ]
+
+export const dailyCloses: DailyClose[] = dailyCloseSeeds.map((close) => ({
+  ...close,
+  closeDate: shift(close.closeDate),
+}))
 
 /** `(base + collected) - (disbursed + surplus)` — the legacy dashboard's cash figure. */
 export function closeCash(close: DailyClose) {
@@ -540,10 +582,8 @@ export const collectedTotal = round2(
  * Days since the last payment on a live credit — the closest thing the legacy
  * data supports to a delinquency measure.
  */
-const AS_OF = '2024-05-28'
-
 export function daysSincePayment(credit: Credit) {
-  return daysBetween(credit.lastPaymentDate ?? credit.startDate, AS_OF)
+  return daysBetween(credit.lastPaymentDate ?? credit.startDate, today())
 }
 
 export const delinquentCredits = activeCredits.filter(

@@ -15,7 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { collectorById, collectors, fullName, users } from '@/lib/mock-data'
+import { formatRelative } from '@/lib/format'
+import { collectorOptions, listUsers } from '@/lib/queries/entities'
 import { requireAdmin } from '@/lib/session'
 
 export default async function AdminUsersPage({ params }: PageProps<'/[locale]'>) {
@@ -27,9 +28,7 @@ export default async function AdminUsersPage({ params }: PageProps<'/[locale]'>)
   const tc = await getTranslations('common')
   const tRoles = await getTranslations('roles')
 
-  const collectorOptions = collectors
-    .filter((collector) => collector.active)
-    .map((collector) => ({ id: collector.id, name: fullName(collector) }))
+  const [users, collectors] = await Promise.all([listUsers(), collectorOptions()])
 
   return (
     <AppShell title={t('title')}>
@@ -39,7 +38,7 @@ export default async function AdminUsersPage({ params }: PageProps<'/[locale]'>)
       <Card className="py-0">
         <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center">
           <SearchInput placeholder={t('searchPlaceholder')} />
-          <NewUserDialog collectors={collectorOptions} />
+          <NewUserDialog collectors={collectors} />
         </div>
 
         <CardContent className="px-0">
@@ -57,7 +56,6 @@ export default async function AdminUsersPage({ params }: PageProps<'/[locale]'>)
               </TableHeader>
               <TableBody>
                 {users.map((user) => {
-                  const collector = collectorById(user.collectorId)
                   return (
                     <TableRow key={user.id}>
                       <TableCell className="pl-4">
@@ -66,7 +64,7 @@ export default async function AdminUsersPage({ params }: PageProps<'/[locale]'>)
                             {user.firstName[0]}
                             {user.lastName[0]}
                           </span>
-                          <span className="font-medium">{fullName(user)}</span>
+                          <span className="font-medium">{user.name}</span>
                         </span>
                       </TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground">
@@ -74,10 +72,10 @@ export default async function AdminUsersPage({ params }: PageProps<'/[locale]'>)
                       </TableCell>
                       <TableCell>{tRoles(user.role)}</TableCell>
                       <TableCell className="text-muted-foreground">
-                        {collector ? fullName(collector) : tc('none')}
+                        {user.collectorId ? user.collectorName : tc('none')}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {user.lastActiveLabel}
+                        {formatRelative(user.lastLoginAt, locale)}
                       </TableCell>
                       <TableCell className="pr-4">
                         <StatusBadge status={user.active ? 'active' : 'inactive'} />

@@ -21,7 +21,7 @@ import { Input } from '@/components/ui/input'
 export function NewUserDialog({
   collectors,
 }: {
-  collectors: { id: number; name: string }[]
+  collectors: { value: string; label: string }[]
 }) {
   const t = useTranslations('admin.users')
   const tc = useTranslations('common')
@@ -86,10 +86,7 @@ export function NewUserDialog({
           <FormField label={t('dialog.linkedCollector')} hint={t('dialog.linkedHint')}>
             <SelectField
               className="h-10 w-full"
-              options={collectors.map((collector) => ({
-                value: String(collector.id),
-                label: collector.name,
-              }))}
+              options={collectors}
             />
           </FormField>
         </div>
