@@ -27,13 +27,15 @@ import {
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
 import { formatDate, formatNumber, formatPercent, formatQ } from '@/lib/format'
+import { daysSincePayment, listCredits } from '@/lib/queries/credits'
 import {
+  agingBuckets,
   collectorPerformance,
-  creditRows,
-  daysSincePayment,
   delinquentCredits,
+  monthlyCashFlow,
+  monthlyTrend,
   portfolioKpis,
-} from '@/lib/mock-data'
+} from '@/lib/queries/dashboard'
 import { requireAdmin } from '@/lib/session'
 
 export default async function DashboardPage({ params }: PageProps<'/[locale]'>) {
@@ -46,17 +48,25 @@ export default async function DashboardPage({ params }: PageProps<'/[locale]'>) 
   const tCredits = await getTranslations('credits')
   const tCollectors = await getTranslations('collectors')
 
-  const performance = collectorPerformance()
-  const atRisk = creditRows(delinquentCredits).sort(
+  const [live, kpis, performance, trend, cashFlow] = await Promise.all([
+    listCredits({ collectorId: null }, { status: 'active' }),
+    portfolioKpis(),
+    collectorPerformance(),
+    monthlyTrend(),
+    monthlyCashFlow(),
+  ])
+
+  const atRisk = delinquentCredits(live).sort(
     (a, b) => daysSincePayment(b) - daysSincePayment(a),
   )
+  const aging = agingBuckets(live)
 
   return (
     <AppShell title={t('title')}>
       <PageHeader title={t('title')} description={t('description')} />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {portfolioKpis.map((kpi) => (
+        {kpis.map((kpi) => (
           <StatCard
             key={kpi.key}
             label={t(`kpi.${kpi.key}`)}
@@ -88,7 +98,7 @@ export default async function DashboardPage({ params }: PageProps<'/[locale]'>) 
               <CardDescription>{t('trend.description')}</CardDescription>
             </CardHeader>
             <CardContent>
-              <PortfolioTrendChart />
+              <PortfolioTrendChart points={trend} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -101,7 +111,7 @@ export default async function DashboardPage({ params }: PageProps<'/[locale]'>) 
                 <CardDescription>{t('cashFlow.description')}</CardDescription>
               </CardHeader>
               <CardContent>
-                <CashFlowChart />
+                <CashFlowChart points={cashFlow} />
               </CardContent>
             </Card>
 
@@ -111,7 +121,7 @@ export default async function DashboardPage({ params }: PageProps<'/[locale]'>) 
                 <CardDescription>{t('collectorPerformance.description')}</CardDescription>
               </CardHeader>
               <CardContent>
-                <CollectorPerformanceChart />
+                <CollectorPerformanceChart rows={performance} />
               </CardContent>
             </Card>
 
@@ -180,7 +190,7 @@ export default async function DashboardPage({ params }: PageProps<'/[locale]'>) 
                 <CardDescription>{t('aging.description')}</CardDescription>
               </CardHeader>
               <CardContent>
-                <AgingChart />
+                <AgingChart buckets={aging} />
               </CardContent>
             </Card>
 

@@ -19,13 +19,8 @@ import {
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
 import { formatDate, formatNumber, formatQ } from '@/lib/format'
-import {
-  creditRows,
-  daysSincePayment,
-  GOOD_RECORD_DAYS,
-  capitalTotal,
-  outstandingTotal,
-} from '@/lib/mock-data'
+import { GOOD_RECORD_DAYS } from '@/lib/ledger'
+import { daysSincePayment, listCredits } from '@/lib/queries/credits'
 import { requireAdmin } from '@/lib/session'
 
 export default async function CreditsPage({ params }: PageProps<'/[locale]'>) {
@@ -37,9 +32,14 @@ export default async function CreditsPage({ params }: PageProps<'/[locale]'>) {
   const tc = await getTranslations('common')
   const tStatus = await getTranslations('status')
 
-  const rows = creditRows()
+  const rows = await listCredits({ collectorId: null })
   const active = rows.filter((row) => row.cancelledAt === null)
   const atRisk = active.filter((row) => daysSincePayment(row) > GOOD_RECORD_DAYS)
+
+  // `SUM(total) WHERE cancel = 0` and its balance counterpart — the two figures
+  // `index.php` put at the top of the legacy dashboard.
+  const capital = active.reduce((sum, row) => sum + row.principal, 0)
+  const outstanding = active.reduce((sum, row) => sum + row.outstanding, 0)
 
   return (
     <AppShell title={t('title')}>
@@ -61,8 +61,8 @@ export default async function CreditsPage({ params }: PageProps<'/[locale]'>) {
       />
 
       <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <SummaryStat label={t('summary.capital')} value={formatQ(capitalTotal, locale)} />
-        <SummaryStat label={t('summary.outstanding')} value={formatQ(outstandingTotal, locale)} />
+        <SummaryStat label={t('summary.capital')} value={formatQ(capital, locale)} />
+        <SummaryStat label={t('summary.outstanding')} value={formatQ(outstanding, locale)} />
         <SummaryStat label={t('summary.active')} value={formatNumber(active.length, locale)} />
         <SummaryStat
           label={t('summary.atRisk')}

@@ -4,7 +4,9 @@ import { AppShell } from '@/components/app-shell'
 import { CreditHistoryForm } from '@/components/credit-history-form'
 import { PageHeader } from '@/components/page-header'
 import { LinkButton } from '@/components/link-button'
-import { collectors, customers, fullName, INTEREST_RATE } from '@/lib/mock-data'
+import { today } from '@/lib/clock'
+import { DEFAULT_INTEREST_RATE } from '@/lib/ledger'
+import { collectorOptions, customerOptions } from '@/lib/queries/entities'
 import { requireAdmin } from '@/lib/session'
 
 export default async function ImportCreditPage({ params }: PageProps<'/[locale]'>) {
@@ -15,12 +17,10 @@ export default async function ImportCreditPage({ params }: PageProps<'/[locale]'
   const t = await getTranslations('credits')
   const tc = await getTranslations('common')
 
-  const customerOptions = customers
-    .filter((customer) => customer.active)
-    .map((customer) => ({ id: customer.id, name: fullName(customer) }))
-  const collectorOptions = collectors
-    .filter((collector) => collector.active)
-    .map((collector) => ({ id: collector.id, name: fullName(collector) }))
+  const [customers, collectors] = await Promise.all([
+    customerOptions(),
+    collectorOptions(),
+  ])
 
   return (
     <AppShell title={t('importPage.title')}>
@@ -36,9 +36,10 @@ export default async function ImportCreditPage({ params }: PageProps<'/[locale]'
       />
 
       <CreditHistoryForm
-        customers={customerOptions}
-        collectors={collectorOptions}
-        interestRate={INTEREST_RATE}
+        customers={customers}
+        collectors={collectors}
+        interestRate={DEFAULT_INTEREST_RATE}
+        today={today()}
         locale={locale}
       />
     </AppShell>

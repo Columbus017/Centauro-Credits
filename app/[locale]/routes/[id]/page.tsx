@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { AppShell } from '@/components/app-shell'
+import { ActionButton } from '@/components/forms/action-button'
 import { PageHeader } from '@/components/page-header'
 import { StatCard } from '@/components/stat-card'
 import { StatusBadge } from '@/components/status-badge'
@@ -17,25 +18,10 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
-import { routing } from '@/i18n/routing'
 import { formatNumber, formatQ } from '@/lib/format'
-import {
-  collectorById,
-  commerceById,
-  creditsForCustomer,
-  customerBalance,
-  customersForRoute,
-  fullName,
-  routeById,
-  routes,
-} from '@/lib/mock-data'
+import { getRoute, listCustomersWithPortfolio } from '@/lib/queries/entities'
+import { setRouteActive } from '@/lib/actions/entities'
 import { requireAdmin } from '@/lib/session'
-
-export function generateStaticParams() {
-  return routing.locales.flatMap((locale) =>
-    routes.map((route) => ({ locale, id: String(route.id) })),
-  )
-}
 
 export default async function RouteDetailPage({
   params,
@@ -44,19 +30,15 @@ export default async function RouteDetailPage({
   setRequestLocale(locale)
   await requireAdmin()
 
-  const route = routeById(Number(id))
+  const route = await getRoute(Number(id))
   if (!route) notFound()
 
   const t = await getTranslations('routes')
   const tc = await getTranslations('common')
   const tClients = await getTranslations('clients')
 
-  const collector = collectorById(route.collectorId)
-  const clients = customersForRoute(route.id)
-  const live = clients.flatMap((client) =>
-    creditsForCustomer(client.id).filter((credit) => credit.cancelledAt === null),
-  )
-  const portfolio = live.reduce((sum, credit) => sum + credit.outstanding, 0)
+  const allClients = await listCustomersWithPortfolio()
+  const clients = allClients.filter((client) => client.routeId === route.id)
 
   return (
     <AppShell title={route.name}>
@@ -64,10 +46,22 @@ export default async function RouteDetailPage({
         title={route.name}
         breadcrumbs={[{ label: t('title'), href: '/routes' }, { label: route.name }]}
         actions={
-          <LinkButton variant="outline" size="lg" href="/routes">
-            <ArrowLeft className="size-4" />
-            {tc('back')}
-          </LinkButton>
+          <>
+            <LinkButton variant="outline" size="lg" href="/routes">
+              <ArrowLeft className="size-4" />
+              {tc('back')}
+            </LinkButton>
+            <ActionButton
+              action={setRouteActive}
+              fields={{ id: route.id, active: String(!route.active) }}
+              size="lg"
+            >
+              {route.active ? tc('deactivate') : tc('activate')}
+            </ActionButton>
+            <LinkButton size="lg" href={`/routes/${route.id}/edit`}>
+              {tc('edit')}
+            </LinkButton>
+          </>
         }
       />
 
@@ -83,9 +77,9 @@ export default async function RouteDetailPage({
           <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <UserCog className="size-3.5" />
-              {collector ? (
-                <Link href={`/collectors/${collector.id}`} className="hover:underline">
-                  {fullName(collector)}
+              {route.collectorId ? (
+                <Link href={`/collectors/${route.collectorId}`} className="hover:underline">
+                  {route.collectorName}
                 </Link>
               ) : (
                 tc('none')
@@ -96,9 +90,9 @@ export default async function RouteDetailPage({
       </div>
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <StatCard label={t('table.clients')} value={formatNumber(clients.length, locale)} />
-        <StatCard label={t('table.credits')} value={formatNumber(live.length, locale)} />
-        <StatCard label={t('table.portfolio')} value={formatQ(portfolio, locale)} />
+        <StatCard label={t('table.clients')} value={formatNumber(route.customerCount, locale)} />
+        <StatCard label={t('table.credits')} value={formatNumber(route.activeCredits, locale)} />
+        <StatCard label={t('table.portfolio')} value={formatQ(route.portfolio, locale)} />
       </div>
 
       {route.details && (
@@ -139,14 +133,14 @@ export default async function RouteDetailPage({
                           href={`/clients/${client.id}`}
                           className="font-medium hover:underline"
                         >
-                          {fullName(client)}
+                          {client.name}
                         </Link>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {commerceById(client.commerceId)?.name ?? '—'}
+                        {client.commerceName}
                       </TableCell>
                       <TableCell className="text-right font-mono tabular-nums">
-                        {formatQ(customerBalance(client.id), locale)}
+                        {formatQ(client.balance, locale)}
                       </TableCell>
                       <TableCell className="pr-6">
                         <StatusBadge status={client.active ? 'active' : 'inactive'} />

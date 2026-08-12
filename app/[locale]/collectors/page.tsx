@@ -18,14 +18,7 @@ import {
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
 import { formatNumber, formatQ } from '@/lib/format'
-import {
-  collectors,
-  collectorPerformance,
-  creditsForCollector,
-  fullName,
-  ledgerEntries,
-  routes,
-} from '@/lib/mock-data'
+import { listCollectors } from '@/lib/queries/entities'
 import { requireAdmin } from '@/lib/session'
 
 export default async function CollectorsPage({ params }: PageProps<'/[locale]'>) {
@@ -36,34 +29,11 @@ export default async function CollectorsPage({ params }: PageProps<'/[locale]'>)
   const t = await getTranslations('collectors')
   const tc = await getTranslations('common')
 
-  const performance = collectorPerformance()
-
-  const rows = collectors.map((collector) => {
-    const own = creditsForCollector(collector.id)
-    const live = own.filter((credit) => credit.cancelledAt === null)
-    const stats = performance.find((p) => p.collectorId === collector.id)
-    const collected = ledgerEntries
-      .filter(
-        (entry) =>
-          entry.kind === 'payment' &&
-          !entry.voided &&
-          own.some((credit) => credit.id === entry.creditId),
-      )
-      .reduce((sum, entry) => sum + entry.amount, 0)
-
-    return {
-      collector,
-      routes: routes.filter((route) => route.collectorId === collector.id),
-      clients: new Set(own.map((credit) => credit.customerId)).size,
-      activeCredits: live.length,
-      portfolio: stats?.portfolio ?? live.reduce((sum, c) => sum + c.outstanding, 0),
-      collected,
-    }
-  })
+  const rows = await listCollectors()
 
   const totalPortfolio = rows.reduce((sum, row) => sum + row.portfolio, 0)
   const totalCollected = rows.reduce((sum, row) => sum + row.collected, 0)
-  const activeCount = rows.filter((row) => row.collector.active).length
+  const activeCount = rows.filter((row) => row.active).length
 
   return (
     <AppShell title={t('title')}>
@@ -79,7 +49,7 @@ export default async function CollectorsPage({ params }: PageProps<'/[locale]'>)
       />
 
       <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <SummaryStat label={t('summary.total')} value={formatNumber(collectors.length, locale)} />
+        <SummaryStat label={t('summary.total')} value={formatNumber(rows.length, locale)} />
         <SummaryStat label={t('summary.active')} value={formatNumber(activeCount, locale)} />
         <SummaryStat label={t('summary.portfolio')} value={formatQ(totalPortfolio, locale)} />
         <SummaryStat label={t('summary.collected')} value={formatQ(totalCollected, locale)} />
@@ -106,30 +76,23 @@ export default async function CollectorsPage({ params }: PageProps<'/[locale]'>)
               </TableHeader>
               <TableBody>
                 {rows.map((row) => (
-                  <TableRow key={row.collector.id}>
+                  <TableRow key={row.id}>
                     <TableCell className="pl-4">
-                      <Link
-                        href={`/collectors/${row.collector.id}`}
-                        className="flex items-center gap-3"
-                      >
+                      <Link href={`/collectors/${row.id}`} className="flex items-center gap-3">
                         <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
-                          {row.collector.firstName[0]}
-                          {row.collector.lastName[0]}
+                          {row.firstName[0]}
+                          {row.lastName[0]}
                         </span>
                         <span>
-                          <span className="block font-medium hover:underline">
-                            {fullName(row.collector)}
-                          </span>
+                          <span className="block font-medium hover:underline">{row.name}</span>
                           <span className="block text-xs text-muted-foreground">
-                            {row.collector.mobile}
+                            {row.mobile}
                           </span>
                         </span>
                       </Link>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {row.routes.length > 0
-                        ? row.routes.map((route) => route.name).join(', ')
-                        : tc('none')}
+                      {row.routeNames.length > 0 ? row.routeNames.join(', ') : tc('none')}
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
                       {row.clients}
@@ -144,13 +107,13 @@ export default async function CollectorsPage({ params }: PageProps<'/[locale]'>)
                       {formatQ(row.collected, locale)}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={row.collector.active ? 'active' : 'inactive'} />
+                      <StatusBadge status={row.active ? 'active' : 'inactive'} />
                     </TableCell>
                     <TableCell className="pr-4 text-right">
                       <LinkButton
                         variant="ghost"
                         size="sm"
-                        href={`/collectors/${row.collector.id}`}
+                        href={`/collectors/${row.id}`}
                         >
                         {tc('view')}
                       </LinkButton>

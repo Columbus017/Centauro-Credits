@@ -1,6 +1,6 @@
 # Centauro Créditos — PHP → Next.js Migration Plan
 
-**Status:** Phases 0–2 merged. Phase 3 is code-complete and awaiting review. The ETL still needs one run against the real dump.
+**Status:** Phases 0–3 merged. Phase 4 is code-complete and awaiting review. The ETL still needs one run against the real dump.
 **Last updated:** 2026-08-11
 
 ---
@@ -29,7 +29,7 @@ The design was drawn for a generic US lending product ("Lendly", USD, credit sco
 | i18n | `next-intl`, `es` (default) + `en`, `localePrefix: 'as-needed'` | ✅ in place |
 | DB | PostgreSQL 16 | ✅ in place |
 | ORM | Prisma 7 (`prisma-client` generator + `@prisma/adapter-pg`) | ✅ in place |
-| Mutations | Server Actions + `zod` — replaces `BLL/*.php` + jQuery AJAX | ⬜ Phase 4 |
+| Mutations | Server Actions + `zod` — replaces `BLL/*.php` + jQuery AJAX | ✅ in place |
 | Auth | Auth.js v5 Credentials provider, JWT session, role in token | ✅ in place |
 | Passwords | `bcryptjs` — verifies the existing PHP `$2y$` hashes, no resets | ✅ in place |
 | PDF | `@react-pdf/renderer` for reports; print-CSS for receipts | ⬜ Phase 5 |
@@ -46,8 +46,8 @@ All work happens in `centauro_credits/`. **Each phase gets its own branch, cut f
 | 0 | `phase-0-foundation` | ✅ merged |
 | 1 | `phase-1-design-port` | ✅ merged |
 | 2 | `phase-2-postgres-migration` | ✅ merged |
-| 3 | `phase-3-auth` | ✅ complete, awaiting merge |
-| 4 | `phase-4-data-wiring` | ⬜ |
+| 3 | `phase-3-auth` | ✅ merged |
+| 4 | `phase-4-data-wiring` | ✅ complete, awaiting merge |
 | 5 | `phase-5-reports` | ⬜ |
 | 6 | `phase-6-deployment` | ⬜ |
 
@@ -175,21 +175,43 @@ The config is split: `lib/auth.config.ts` touches no database, so `proxy.ts` rea
 
 **Not verified:** nothing exercises a `collector` user whose `collector_id` is null — `requireCollector()` answers 403 rather than rendering empty screens as the legacy app did, but no such row exists in the seed. Sessions expire after 12 hours; the expiry path has not been waited out.
 
-### ⬜ Phase 4 — Wire screens to real data
+### ✅ Phase 4 — Wire screens to real data (complete, 5 commits)
 
-Replace mock imports with Server Components reading through Prisma; convert every form to a Server Action (`zod`-validated, `revalidatePath`, `useActionState` for pending/error). Vertical slices in dependency order:
+Every screen reads through Prisma and every form is a Server Action. `lib/queries/*` returns the row shapes the screens were already written against, so the read swap stayed mechanical; `lib/actions/*` holds the writes.
 
-`commerce → collectors → routes → customers → credits → ledger/payments → daily-close → dashboard → reports → admin`
+**The rules, all ported and all verified against the database:**
 
-Business rules to port faithfully (they are the product):
+- New credit → credit + origination row at `principal × 1.15`, one transaction.
+- Payment → append, re-derive; at zero set `cancelled_at`, plus `bad_record` if payoff took over 30 days.
+- Void → `voided_at`, then every later running balance re-derived.
+- Edit credit → origination moved and the whole ledger cascaded.
+- Delete credit → **soft**, with its payment history. Confirmed in Phase 2; this is where the behaviour change actually lands.
+- Daily close → one `daily_closes` row and N ledger rows, atomic, and refused if that collector already closed that day.
+- Dashboard → `cash = (base + incomes) - (credits + exes)` and the monthly series, from `daily_closes` and the ledger.
 
-- New credit → credit + origination ledger row at `total * (1 + rate)`, one transaction.
-- Payment → append ledger row, decrement balance; at zero set `cancelled_at`, and `bad_record` if payoff took > 30 days.
-- Void payment → set `voided_at`, recompute all later running balances.
-- Edit credit → re-derive origination and cascade through every non-voided row.
-- Delete credit → currently a **hard** delete of credit + balance rows. Change to soft-delete for auditability; **this is an intentional behaviour change and should be confirmed.**
+**One place, not four.** Every write ends in `syncCredit()`: re-walk the ledger, correct any moved balance, re-derive `cancelled_at` and `bad_record`. The legacy versions disagreed — the payment path read the last balance without filtering voided rows, the void path never revisited `cancel`, and each compared `balance == 0` in float, so an overpayment left a credit open for good.
 
-Dashboard queries map from `BLL/dash*.php`: monthly `incomes`/`base`/`exes`/`credits` per collector, `cash = (base + incomes) - (credits + exes)`, and portfolio totals.
+**Three legacy defects do not survive the port:**
+
+1. **Voiding the payment that closed a credit** left it `cancel = 1` with money owing. It now returns to *activo*.
+2. **Deleting a credit** issued `DELETE FROM balance` then `DELETE FROM credit`, destroying a real loan's history. Now `deleted_at` on both.
+3. **The daily close** committed its income row first and posted payments afterwards, so a failure halfway left a close claiming money no credit had received. Now one transaction.
+
+**Beyond the original plan, all deliberate:**
+
+- **Row-level scoping moved into the queries.** `Scope` threads a `collector_id` through every read, replacing the checks Phase 3 wrote beside them. A collector asking for another's credit now gets 404 rather than 403 — the row does not exist for them, and the answer no longer confirms that it exists at all.
+- **Edit screens for clients, collectors and routes.** Phase 1 built create-only while the legacy app had `editCustomer.php` and friends; create and edit are now one component and one schema, where the legacy kept two copies whose validation drifted.
+- **The daily close stopped trusting free text.** A payment names a live credit on the chosen collector's round, and `collected` is the sum of what was posted rather than a second number the operator typed — in the legacy form the two could disagree.
+- **Two figures the design asked for and the data cannot support.** The per-tile deltas are gone except on *collected*, which is a flow with last month in the ledger; the rest are stocks with no prior snapshot, and the mock deltas were invented. The "recent reports" table had no table behind it.
+- **The settings screen is honest.** The interest rate lives per credit and the grace window is a constant, so both are read-only with a hint saying why. It gained the marketplace management `BLL/commerce.php` never had.
+- **"Client since" is the date of their first credit.** The legacy `customer` table records no creation date, so `created_at` would claim every migrated client joined on the migration day.
+- **`lib/clock.ts`** puts "today" in `America/Guatemala`, not the container's zone, and the development fixture slides its dates to meet it — frozen in 2024 it left every credit months overdue and no day with any activity. Intervals are preserved, so delinquency is still the 18.2% Phase 1 verified.
+- **Two guards the legacy app lacked**: a password minimum on new logins, and a refusal to deactivate your own account.
+- 52 Vitest cases now, adding the daily-close formula and the clock.
+
+**Verified by driving the running app against Postgres**, then reading the rows back: a credit created at Q1,000 books an origination of Q1,150; a Q500 payment leaves Q650; a Q700 payment is refused *with the client-side guard bypassed*; Q650 closes it as *cancelado* with no bad record; voiding the mid-sequence Q500 re-derives the later balance to Q500 and returns the credit to *activo*; editing the principal to Q2,000 moves the origination to Q2,300 and cascades; deleting keeps all three rows with `deleted_at` while the screen 404s. A daily close writes one row and one payment atomically, computes Q700 = (1000+300)−(500+100), and a second close for the same day is refused. Both roles' full route matrices still hold in both locales.
+
+**One defect only running the app revealed:** adding `onValueChange` to `SelectField` — a Server Component — made it forward a function to a Client Component unconditionally, which 500'd `/clients`, `/credits` and `/payments`. The build was clean throughout.
 
 ### ⬜ Phase 5 — Reports
 
@@ -223,9 +245,9 @@ Multi-stage `Dockerfile` (Next standalone); `docker-compose.yml` with `app` + `p
 
 **In `centauro_credits/`:**
 
-- `app/[locale]/**` — 23 screens plus `forbidden.tsx`, `unauthorized.tsx` and the `denied/` rewrite target; `app/api/auth/[...nextauth]/route.ts`; `app/globals.css`, `proxy.ts`, `next.config.ts`
-- `components/ui/*` (15 primitives) + `app-shell`, `page-header`, `stat-card`, `status-badge`, `theme-toggle`, `summary-stat`, `form-field`, `search-input`, `select-field`, `link-button`, `admin-tabs`, `locale-switcher`, `record-payment-dialog`, `new-user-dialog`, `daily-close-form`, `credit-history-form`, `credit-amount-fields`, `print-button`, `dashboard/charts`, `app-shell-frame`, `login-form`, `auth-notice`, `theme-script`
-- `lib/{utils,format,mock-data}.ts`; Phase 2 added `lib/{ledger,db,prisma-client,db-utils}.ts`; Phase 3 added `lib/{auth,auth.config,roles,session}.ts`, `lib/actions/auth.ts` and `types/next-auth.d.ts` → Phase 4 fills out `lib/actions/*.ts`
+- `app/[locale]/**` — 27 screens (Phase 4 added `edit` for clients, collectors, routes and credits) plus `forbidden.tsx`, `unauthorized.tsx` and the `denied/` rewrite target; `app/api/auth/[...nextauth]/route.ts`; `app/globals.css`, `proxy.ts`, `next.config.ts`
+- `components/ui/*` (15 primitives) + `app-shell`, `page-header`, `stat-card`, `status-badge`, `theme-toggle`, `summary-stat`, `form-field`, `search-input`, `select-field`, `link-button`, `admin-tabs`, `locale-switcher`, `record-payment-dialog`, `new-user-dialog`, `daily-close-form`, `credit-history-form`, `credit-amount-fields`, `print-button`, `dashboard/charts`, `app-shell-frame`, `login-form`, `auth-notice`, `theme-script`, `forms/{form-errors,action-button,collector-form,route-form,customer-form,credit-form,commerce-card}`
+- `lib/{utils,format,mock-data}.ts`; Phase 2 added `lib/{ledger,db,prisma-client,db-utils}.ts`; Phase 3 added `lib/{auth,auth.config,roles,session}.ts`, `lib/actions/auth.ts` and `types/next-auth.d.ts`; Phase 4 added `lib/clock.ts`, `lib/reports.ts`, `lib/queries/*` and `lib/actions/{shared,form-state,entities,credits,users}.ts`
 - `i18n/{routing,navigation,request}.ts`, `messages/{es,en}.json`
 - `prisma/{schema.prisma,seed.ts,migrations/}`, `prisma.config.ts`, `scripts/{migrate-from-mysql.ts,legacy-fixture.sql}`, `docker-compose.dev.yml`
 - Phase 6: `Dockerfile`, `docker-compose.yml`, `app/api/health/route.ts`
@@ -240,7 +262,7 @@ Multi-stage `Dockerfile` (Next standalone); `docker-compose.yml` with `app` + `p
 
 **Phase 3 (done):** sign in, sign out, wrong password, and a deactivated account; the full route matrix for both roles in both locales; row scoping on the two shared screens; `last_login_at` written only on success. Two things are worth repeating on any auth change: neutralise `canAccess` in `proxy.ts` and confirm the pages still answer 403 on their own, and check the **production** build — `pnpm build && pnpm start` — because dev mode hid a total auth failure (`UntrustedHost`).
 
-**Phase 4 (behaviour parity):** run old and new side by side on the same data and diff — create a credit (origination = `total × 1.15`), pay to zero (→ cancelled, `bad_record` iff > 30 days), void a mid-sequence payment (→ later balances re-derived), submit a daily close (→ one `daily_closes` row + N ledger rows, atomic), and confirm a `collector` session gets 403 on `/clients` **at the server**, not merely a hidden nav link (already true — Phase 3 verified it at both the proxy and the page).
+**Phase 4 (done against the seed; repeat against migrated data):** every step above was driven through the running app and then read back out of Postgres — see the phase entry for the figures. What is *not* done is the side-by-side diff against the legacy app on the same data, which needs the real dump. Re-run the sequence after the ETL: create a credit, pay to zero, void a mid-sequence payment, edit the principal, soft-delete, and submit a daily close, comparing each result against what `centauro_old` produces from the same input.
 
 **Suggested test setup** (none exists in either project): Vitest for the ledger math — `recalculateBalances`, payoff/`bad_record` detection, and void-cascade are the three places a bug silently corrupts money.
 
@@ -248,12 +270,14 @@ Multi-stage `Dockerfile` (Next standalone); `docker-compose.yml` with `app` + `p
 
 ## 7. Open risks and questions
 
-- **No schema dump yet.** Phase 2 was built against a reconstructed schema and is unblocked, but the ETL has never seen real data. *(blocking for Phase 4, not for Phase 3)*
-- ~~**Hard-delete → soft-delete** for credits~~ — confirmed; `deleted_at` is in the schema. The Server Action behaviour still has to be written in Phase 4.
+- **No schema dump yet.** Phase 2 was built against a reconstructed schema and the ETL has never seen real data. Phase 4 was built and verified against the seed, so this now blocks only the side-by-side parity diff and the volume questions below.
+- **List screens load a credit's whole ledger to derive its figures.** Correct, and it keeps the list and the detail in agreement, but it has never met a real table. If the migrated book turns out to be large, `/credits` and `/clients` are the first places to feel it, and the fix is a `DISTINCT ON` projection rather than abandoning the derivation.
+- **Search and filter controls on the list screens are still inert.** They were built in Phase 1 and Phase 4 did not wire them; every list renders in full.
+- ~~**Hard-delete → soft-delete** for credits~~ — done; `deleteCredit` soft-deletes the credit and its ledger. Nothing in the app un-deletes one yet, so a mistaken delete needs SQL.
 - Old money columns are floats; some historical balances will not reconcile to the penny. Surface during ETL rather than papering over.
 - MySQL 5.7 is EOL and the compose file commits DB credentials in plaintext. Rotate during Phase 6.
 - The mobile drawer (<1024px) has not been verified interactively.
-- **Row-level scoping is written against the mock data.** The checks on `/credits/[id]` and `/payments/[id]/receipt` must move into the Prisma queries in Phase 4, not be left duplicated beside them.
+- ~~**Row-level scoping is written against the mock data.**~~ — done; `Scope` is threaded through every read in `lib/queries/*`.
 - `forbidden()` / `unauthorized()` depend on `experimental.authInterrupts`. It is the sanctioned mechanism in Next 16 but still flagged experimental; a Next upgrade should re-check the 403 path.
 - `next-auth` is on `5.0.0-beta.32`. It declares Next 16 support and has been in beta a long while, but it is a beta on the login path.
 - The design app pins older ranges (`@base-ui/react` 1.5, `lucide-react` 1.16) than what installed here (1.7, 1.31). No issues so far beyond the recharts 3 `Pie` behaviour noted above.

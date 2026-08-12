@@ -52,6 +52,31 @@ export function payoffTotalCents(
   return Math.round(toCents(principal) * (1 + rate))
 }
 
+// ------------------------------------------------------------- daily close
+
+export type DailyCloseAmounts = {
+  base: number
+  collected: number
+  disbursed: number
+  surplus: number
+}
+
+/**
+ * The cash a collector owes at the end of the day:
+ * `(base + collected) - (disbursed + surplus)`.
+ *
+ * `dashCash.php` computed this in SQL and `newIncome.php` recomputed it in
+ * JavaScript, which is two places for one formula. In centavos, so a day of
+ * float additions cannot leave the till a centavo short.
+ */
+export function dailyCloseCash(amounts: DailyCloseAmounts): number {
+  return fromCents(
+    toCents(amounts.base) +
+      toCents(amounts.collected) -
+      (toCents(amounts.disbursed) + toCents(amounts.surplus)),
+  )
+}
+
 // ------------------------------------------------------------------ ledger
 
 export type LedgerKind = 'origination' | 'payment'

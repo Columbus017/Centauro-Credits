@@ -18,13 +18,7 @@ import {
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
 import { formatNumber, formatQ } from '@/lib/format'
-import {
-  collectorById,
-  creditsForCustomer,
-  customersForRoute,
-  fullName,
-  routes,
-} from '@/lib/mock-data'
+import { listRoutes } from '@/lib/queries/entities'
 import { requireAdmin } from '@/lib/session'
 
 export default async function RoutesPage({ params }: PageProps<'/[locale]'>) {
@@ -35,25 +29,11 @@ export default async function RoutesPage({ params }: PageProps<'/[locale]'>) {
   const t = await getTranslations('routes')
   const tc = await getTranslations('common')
 
-  const rows = routes.map((route) => {
-    const clients = customersForRoute(route.id)
-    const live = clients.flatMap((client) =>
-      creditsForCustomer(client.id).filter((credit) => credit.cancelledAt === null),
-    )
-    const collector = collectorById(route.collectorId)
+  const rows = await listRoutes()
 
-    return {
-      route,
-      collectorName: collector ? fullName(collector) : tc('none'),
-      clients: clients.length,
-      activeCredits: live.length,
-      portfolio: live.reduce((sum, credit) => sum + credit.outstanding, 0),
-    }
-  })
-
-  const totalClients = rows.reduce((sum, row) => sum + row.clients, 0)
+  const totalClients = rows.reduce((sum, row) => sum + row.customerCount, 0)
   const totalPortfolio = rows.reduce((sum, row) => sum + row.portfolio, 0)
-  const activeCount = rows.filter((row) => row.route.active).length
+  const activeCount = rows.filter((row) => row.active).length
 
   return (
     <AppShell title={t('title')}>
@@ -69,7 +49,7 @@ export default async function RoutesPage({ params }: PageProps<'/[locale]'>) {
       />
 
       <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <SummaryStat label={t('summary.total')} value={formatNumber(routes.length, locale)} />
+        <SummaryStat label={t('summary.total')} value={formatNumber(rows.length, locale)} />
         <SummaryStat label={t('summary.active')} value={formatNumber(activeCount, locale)} />
         <SummaryStat label={t('summary.clients')} value={formatNumber(totalClients, locale)} />
         <SummaryStat label={t('summary.portfolio')} value={formatQ(totalPortfolio, locale)} />
@@ -96,19 +76,19 @@ export default async function RoutesPage({ params }: PageProps<'/[locale]'>) {
               </TableHeader>
               <TableBody>
                 {rows.map((row) => (
-                  <TableRow key={row.route.id}>
-                    <TableCell className="pl-4 font-mono text-xs">{row.route.code}</TableCell>
+                  <TableRow key={row.id}>
+                    <TableCell className="pl-4 font-mono text-xs">{row.code}</TableCell>
                     <TableCell>
                       <Link
-                        href={`/routes/${row.route.id}`}
+                        href={`/routes/${row.id}`}
                         className="font-medium hover:underline"
                       >
-                        {row.route.name}
+                        {row.name}
                       </Link>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{row.collectorName}</TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
-                      {row.clients}
+                      {row.customerCount}
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
                       {row.activeCredits}
@@ -117,13 +97,13 @@ export default async function RoutesPage({ params }: PageProps<'/[locale]'>) {
                       {formatQ(row.portfolio, locale)}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={row.route.active ? 'active' : 'inactive'} />
+                      <StatusBadge status={row.active ? 'active' : 'inactive'} />
                     </TableCell>
                     <TableCell className="pr-4 text-right">
                       <LinkButton
                         variant="ghost"
                         size="sm"
-                        href={`/routes/${row.route.id}`}
+                        href={`/routes/${row.id}`}
                         >
                         {tc('view')}
                       </LinkButton>

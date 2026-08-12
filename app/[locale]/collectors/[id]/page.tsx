@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { AppShell } from '@/components/app-shell'
+import { ActionButton } from '@/components/forms/action-button'
 import { PageHeader } from '@/components/page-header'
 import { StatCard } from '@/components/stat-card'
 import { StatusBadge } from '@/components/status-badge'
@@ -17,26 +18,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
-import { routing } from '@/i18n/routing'
 import { formatDate, formatQ } from '@/lib/format'
-import {
-  closeCash,
-  collectorById,
-  collectors,
-  creditsForCollector,
-  customerById,
-  dailyCloses,
-  fullName,
-  ledgerEntries,
-  routes,
-} from '@/lib/mock-data'
+import { listCredits } from '@/lib/queries/credits'
+import { listDailyCloses } from '@/lib/queries/daily-close'
+import { getCollector, listRoutes } from '@/lib/queries/entities'
+import { setCollectorActive } from '@/lib/actions/entities'
 import { requireAdmin } from '@/lib/session'
-
-export function generateStaticParams() {
-  return routing.locales.flatMap((locale) =>
-    collectors.map((collector) => ({ locale, id: String(collector.id) })),
-  )
-}
 
 export default async function CollectorDetailPage({
   params,
@@ -45,7 +32,7 @@ export default async function CollectorDetailPage({
   setRequestLocale(locale)
   await requireAdmin()
 
-  const collector = collectorById(Number(id))
+  const collector = await getCollector(Number(id))
   if (!collector) notFound()
 
   const t = await getTranslations('collectors')
@@ -53,36 +40,41 @@ export default async function CollectorDetailPage({
   const tCredits = await getTranslations('credits')
   const tClose = await getTranslations('dailyClose')
 
-  const own = creditsForCollector(collector.id)
-  const live = own.filter((credit) => credit.cancelledAt === null)
-  const assignedRoutes = routes.filter((route) => route.collectorId === collector.id)
-  const closes = dailyCloses
-    .filter((close) => close.collectorId === collector.id)
-    .sort((a, b) => b.closeDate.localeCompare(a.closeDate))
+  const [own, allRoutes, closes] = await Promise.all([
+    listCredits({ collectorId: collector.id }),
+    listRoutes(),
+    listDailyCloses({ collectorId: collector.id }),
+  ])
+  const assignedRoutes = allRoutes.filter((route) => route.collectorId === collector.id)
 
-  const portfolio = live.reduce((sum, credit) => sum + credit.outstanding, 0)
-  const collected = ledgerEntries
-    .filter(
-      (entry) =>
-        entry.kind === 'payment' &&
-        !entry.voided &&
-        own.some((credit) => credit.id === entry.creditId),
-    )
-    .reduce((sum, entry) => sum + entry.amount, 0)
+  const portfolio = collector.portfolio
+  const collected = collector.collected
 
   return (
-    <AppShell title={fullName(collector)}>
+    <AppShell title={collector.name}>
       <PageHeader
-        title={fullName(collector)}
+        title={collector.name}
         breadcrumbs={[
           { label: t('title'), href: '/collectors' },
-          { label: fullName(collector) },
+          { label: collector.name },
         ]}
         actions={
-          <LinkButton variant="outline" size="lg" href="/collectors">
-            <ArrowLeft className="size-4" />
-            {tc('back')}
-          </LinkButton>
+          <>
+            <LinkButton variant="outline" size="lg" href="/collectors">
+              <ArrowLeft className="size-4" />
+              {tc('back')}
+            </LinkButton>
+            <ActionButton
+              action={setCollectorActive}
+              fields={{ id: collector.id, active: String(!collector.active) }}
+              size="lg"
+            >
+              {collector.active ? tc('deactivate') : tc('activate')}
+            </ActionButton>
+            <LinkButton size="lg" href={`/collectors/${collector.id}/edit`}>
+              {tc('edit')}
+            </LinkButton>
+          </>
         }
       />
 
@@ -93,7 +85,7 @@ export default async function CollectorDetailPage({
         </span>
         <div className="mr-auto min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold">{fullName(collector)}</span>
+            <span className="font-semibold">{collector.name}</span>
             <StatusBadge status={collector.active ? 'active' : 'inactive'} />
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -172,28 +164,25 @@ export default async function CollectorDetailPage({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {own.map((credit) => {
-                      const customer = customerById(credit.customerId)
-                      return (
-                        <TableRow key={credit.id}>
-                          <TableCell className="pl-6">
-                            <Link
-                              href={`/credits/${credit.id}`}
-                              className="font-mono text-xs font-medium hover:underline"
-                            >
-                              {credit.code}
-                            </Link>
-                          </TableCell>
-                          <TableCell>{customer ? fullName(customer) : '—'}</TableCell>
-                          <TableCell className="text-right font-mono tabular-nums">
-                            {formatQ(credit.outstanding, locale)}
-                          </TableCell>
-                          <TableCell className="pr-6">
-                            <StatusBadge status={credit.status} />
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
+                    {own.map((credit) => (
+                      <TableRow key={credit.id}>
+                        <TableCell className="pl-6">
+                          <Link
+                            href={`/credits/${credit.id}`}
+                            className="font-mono text-xs font-medium hover:underline"
+                          >
+                            {credit.code}
+                          </Link>
+                        </TableCell>
+                        <TableCell>{credit.customerName}</TableCell>
+                        <TableCell className="text-right font-mono tabular-nums">
+                          {formatQ(credit.outstanding, locale)}
+                        </TableCell>
+                        <TableCell className="pr-6">
+                          <StatusBadge status={credit.status} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </div>
@@ -242,7 +231,7 @@ export default async function CollectorDetailPage({
                         {formatQ(close.surplus, locale)}
                       </TableCell>
                       <TableCell className="pr-6 text-right font-mono font-semibold tabular-nums">
-                        {formatQ(closeCash(close), locale)}
+                        {formatQ(close.cash, locale)}
                       </TableCell>
                     </TableRow>
                   ))}

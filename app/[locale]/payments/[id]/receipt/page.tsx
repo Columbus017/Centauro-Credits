@@ -1,22 +1,13 @@
 import { ArrowLeft, Landmark } from 'lucide-react'
-import { forbidden, notFound } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { AppShell } from '@/components/app-shell'
 import { PrintButton } from '@/components/print-button'
 import { LinkButton } from '@/components/link-button'
-import { routing } from '@/i18n/routing'
 import { formatDate, formatQCents } from '@/lib/format'
-import { creditById, ledgerEntries, paymentById } from '@/lib/mock-data'
+import { getPayment } from '@/lib/queries/payments'
 import { requireUser } from '@/lib/session'
-
-export function generateStaticParams() {
-  return routing.locales.flatMap((locale) =>
-    ledgerEntries
-      .filter((entry) => entry.kind === 'payment')
-      .map((entry) => ({ locale, id: String(entry.id) })),
-  )
-}
 
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
@@ -39,14 +30,12 @@ export default async function ReceiptPage({
   const isAdmin = role === 'admin'
   const backHref = isAdmin ? '/payments' : '/field/today'
 
-  const payment = paymentById(Number(id))
+  // A receipt names a client and an amount, so the scope goes into the query:
+  // a collector can only load one written against a credit on their own round.
+  const payment = await getPayment(Number(id), {
+    collectorId: isAdmin ? null : collectorId,
+  })
   if (!payment) notFound()
-
-  // A receipt names a client and an amount, so a collector may only open one
-  // written against a credit on their own round. Phase 4 moves this into the
-  // query. See the same check on the credit detail screen.
-  const credit = creditById(payment.creditId)
-  if (!isAdmin && credit?.collectorId !== collectorId) forbidden()
 
   const t = await getTranslations('payments')
   const tc = await getTranslations('common')

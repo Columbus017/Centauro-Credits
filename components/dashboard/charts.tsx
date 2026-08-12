@@ -17,13 +17,16 @@ import {
 import { useLocale, useTranslations } from 'next-intl'
 
 import { formatMonth, formatNumber, formatQ, formatQCompact } from '@/lib/format'
-import {
-  agingBuckets,
-  closeCash,
-  collectorPerformance,
-  monthlyCashFlow,
-  monthlyTrend,
-} from '@/lib/mock-data'
+import { dailyCloseCash } from '@/lib/ledger'
+import type {
+  AgingBucket,
+  CashFlowPoint,
+  CollectorPerformance,
+  TrendPoint,
+} from '@/lib/queries/dashboard'
+
+// These are Client Components — recharts needs the browser — so their data is
+// fetched by the dashboard page and handed down rather than imported.
 
 const axisProps = {
   stroke: 'var(--color-muted-foreground)',
@@ -60,11 +63,11 @@ function TooltipBox({
 }
 
 /** Capital placed against cash collected, by month. */
-export function PortfolioTrendChart() {
+export function PortfolioTrendChart({ points }: { points: TrendPoint[] }) {
   const locale = useLocale()
   const t = useTranslations('dashboard.trend')
 
-  const data = monthlyTrend.map((point) => ({
+  const data = points.map((point) => ({
     ...point,
     label: formatMonth(point.month, locale),
   }))
@@ -129,24 +132,16 @@ export function PortfolioTrendChart() {
 }
 
 /** Base, collections, surplus and the resulting net cash per month. */
-export function CashFlowChart() {
+export function CashFlowChart({ points }: { points: CashFlowPoint[] }) {
   const locale = useLocale()
   const t = useTranslations('dashboard.cashFlow')
 
-  const data = monthlyCashFlow.map((point) => ({
+  const data = points.map((point) => ({
     label: formatMonth(point.month, locale),
     base: point.base,
     collected: point.collected,
     surplus: point.surplus,
-    cash: closeCash({
-      id: 0,
-      collectorId: 0,
-      closeDate: point.month,
-      base: point.base,
-      collected: point.collected,
-      surplus: point.surplus,
-      disbursed: point.disbursed,
-    }),
+    cash: dailyCloseCash(point),
   }))
 
   const names: Record<string, string> = {
@@ -198,11 +193,15 @@ export function CashFlowChart() {
 }
 
 /** Outstanding book against cash collected, per collector. */
-export function CollectorPerformanceChart() {
+export function CollectorPerformanceChart({
+  rows,
+}: {
+  rows: CollectorPerformance[]
+}) {
   const locale = useLocale()
   const t = useTranslations('dashboard.collectorPerformance')
 
-  const data = collectorPerformance().map((entry) => ({
+  const data = rows.map((entry) => ({
     label: entry.name,
     portfolio: entry.portfolio,
     collected: entry.collected,
@@ -253,11 +252,10 @@ const agingColors: Record<string, string> = {
 }
 
 /** Live credits bucketed by days since their last payment. */
-export function AgingChart() {
+export function AgingChart({ buckets }: { buckets: AgingBucket[] }) {
   const locale = useLocale()
   const t = useTranslations('dashboard.aging')
 
-  const buckets = agingBuckets()
   const data = buckets.map((bucket) => ({
     key: bucket.key,
     label: t(bucket.key),

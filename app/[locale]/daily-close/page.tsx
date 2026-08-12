@@ -14,7 +14,10 @@ import {
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
 import { formatDate, formatQ } from '@/lib/format'
-import { closeCash, collectorById, collectors, dailyCloses, fullName } from '@/lib/mock-data'
+import { today } from '@/lib/clock'
+import { listCredits } from '@/lib/queries/credits'
+import { listDailyCloses } from '@/lib/queries/daily-close'
+import { collectorOptions } from '@/lib/queries/entities'
 import { requireAdmin } from '@/lib/session'
 
 export default async function DailyClosePage({ params }: PageProps<'/[locale]'>) {
@@ -24,19 +27,30 @@ export default async function DailyClosePage({ params }: PageProps<'/[locale]'>)
 
   const t = await getTranslations('dailyClose')
 
-  const collectorOptions = collectors
-    .filter((collector) => collector.active)
-    .map((collector) => ({ id: collector.id, name: fullName(collector) }))
+  const [collectors, history, live] = await Promise.all([
+    collectorOptions(),
+    listDailyCloses(),
+    listCredits({ collectorId: null }, { status: 'active' }),
+  ])
 
-  const history = [...dailyCloses].sort(
-    (a, b) => b.closeDate.localeCompare(a.closeDate) || a.collectorId - b.collectorId,
-  )
+  // A payment names a live credit rather than a typed card number: the legacy
+  // form took free text and posted whatever it was given as `_idCredit`.
+  const credits = live.map((credit) => ({
+    value: String(credit.id),
+    label: `${credit.code} · ${credit.customerName}`,
+    collectorId: String(credit.collectorId),
+  }))
 
   return (
     <AppShell title={t('title')}>
       <PageHeader title={t('title')} description={t('description')} />
 
-      <DailyCloseForm collectors={collectorOptions} locale={locale} />
+      <DailyCloseForm
+        collectors={collectors}
+        credits={credits}
+        today={today()}
+        locale={locale}
+      />
 
       <Card className="mt-6 py-0">
         <CardHeader className="pt-6">
@@ -58,23 +72,18 @@ export default async function DailyClosePage({ params }: PageProps<'/[locale]'>)
               </TableHeader>
               <TableBody>
                 {history.map((close) => {
-                  const collector = collectorById(close.collectorId)
                   return (
                     <TableRow key={close.id}>
                       <TableCell className="pl-6">
                         {formatDate(close.closeDate, locale)}
                       </TableCell>
                       <TableCell>
-                        {collector ? (
-                          <Link
-                            href={`/collectors/${collector.id}`}
-                            className="font-medium hover:underline"
-                          >
-                            {fullName(collector)}
-                          </Link>
-                        ) : (
-                          '—'
-                        )}
+                        <Link
+                          href={`/collectors/${close.collectorId}`}
+                          className="font-medium hover:underline"
+                        >
+                          {close.collectorName}
+                        </Link>
                       </TableCell>
                       <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
                         {formatQ(close.base, locale)}
@@ -89,7 +98,7 @@ export default async function DailyClosePage({ params }: PageProps<'/[locale]'>)
                         {formatQ(close.surplus, locale)}
                       </TableCell>
                       <TableCell className="pr-6 text-right font-mono font-semibold tabular-nums">
-                        {formatQ(closeCash(close), locale)}
+                        {formatQ(close.cash, locale)}
                       </TableCell>
                     </TableRow>
                   )

@@ -49,6 +49,22 @@
       "action": "Iniciar sesión"
     }
   },
+  "errors": {
+    "checkFields": "Revise los campos marcados.",
+    "required": "Este campo es obligatorio.",
+    "tooLong": "El valor es demasiado largo.",
+    "invalid": "El valor no es válido.",
+    "invalidDate": "Ingrese una fecha válida.",
+    "invalidAmount": "Ingrese un monto válido (máximo dos decimales).",
+    "mustBePositive": "El monto debe ser mayor que cero.",
+    "overpayment": "El pago excede el saldo pendiente del crédito.",
+    "notFound": "El registro ya no existe.",
+    "duplicateClose": "Ese cobrador ya tiene un cierre registrado para esa fecha.",
+    "creditNotOnRound": "Uno de los créditos no pertenece a la ruta de ese cobrador.",
+    "duplicateUsername": "Ese usuario ya existe.",
+    "unknown": "Ocurrió un error inesperado.",
+    "passwordTooShort": "La contraseña debe tener al menos 8 caracteres."
+  },
   "status": {
     "active": "Activo",
     "inactive": "Inactivo",
@@ -90,7 +106,13 @@
     "days": "días",
     "locale": "Idioma",
     "spanish": "Español",
-    "english": "Inglés"
+    "english": "Inglés",
+    "saving": "Guardando…",
+    "deactivate": "Desactivar",
+    "activate": "Activar",
+    "delete": "Eliminar",
+    "confirmDelete": "Esto oculta el crédito y su historial de pagos. ¿Continuar?",
+    "add": "Agregar"
   },
   "login": {
     "title": "Bienvenido",
@@ -264,7 +286,8 @@
       "startDate": "Fecha de entrega",
       "computed": "Total a pagar",
       "computedHint": "Capital más {rate} de interés.",
-      "save": "Guardar crédito"
+      "save": "Guardar crédito",
+      "editDescription": "Cambiar el capital mueve la entrega del crédito y recalcula todos los saldos posteriores."
     },
     "importPage": {
       "title": "Ingresar crédito existente",
@@ -491,14 +514,15 @@
         "role": "Rol",
         "linkedCollector": "Cobrador vinculado",
         "linkedHint": "Solo para cuentas de cobrador; limita lo que puede ver.",
-        "submit": "Crear usuario"
+        "submit": "Crear usuario",
+        "mismatch": "Las contraseñas no coinciden."
       }
     },
     "settings": {
       "title": "Ajustes",
       "description": "Parámetros del negocio y preferencias de la consola.",
       "business": "Parámetros del negocio",
-      "businessDescription": "Afectan el cálculo de todos los créditos nuevos.",
+      "businessDescription": "Valores fijos del negocio. Cada crédito guarda la tasa con la que se creó.",
       "interestRate": "Tasa de interés",
       "interestRateHint": "Se aplica sobre el capital al crear el crédito.",
       "goodRecordDays": "Días para buen record",
@@ -511,7 +535,12 @@
       "notifications": "Notificaciones por correo",
       "notificationsHint": "Enviar el resumen diario de cobranza.",
       "danger": "Zona sensible",
-      "dangerDescription": "Estas acciones afectan datos históricos."
+      "dangerDescription": "Estas acciones afectan datos históricos.",
+      "commerce": "Comercios",
+      "commerceDescription": "Los mercados y centros donde operan los clientes.",
+      "commerceName": "Nombre del comercio",
+      "commerceClients": "{count, plural, =0 {Sin clientes} one {# cliente} other {# clientes}}",
+      "readOnly": "Solo lectura: cambiarlo requiere una tabla de configuración."
     }
   },
   "field": {

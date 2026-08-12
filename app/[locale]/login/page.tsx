@@ -4,7 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { LoginForm } from '@/components/login-form'
 import { formatPercent, formatQCompact } from '@/lib/format'
-import { delinquencyRate, outstandingTotal } from '@/lib/mock-data'
+import { publicHeadline } from '@/lib/queries/dashboard'
 
 export default async function LoginPage({ params }: PageProps<'/[locale]'>) {
   const { locale } = await params
@@ -13,8 +13,9 @@ export default async function LoginPage({ params }: PageProps<'/[locale]'>) {
   const t = await getTranslations('login')
   const tApp = await getTranslations('app')
 
-  const collectionRate = formatPercent(100 - delinquencyRate, locale)
-  const portfolio = formatQCompact(outstandingTotal, locale)
+  const headline = await publicHeadline()
+  const collectionRate = formatPercent(headline.collectionRate, locale)
+  const portfolio = formatQCompact(headline.outstanding, locale)
   const year = new Date().getFullYear()
 
   return (

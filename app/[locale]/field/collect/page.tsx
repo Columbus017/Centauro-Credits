@@ -16,22 +16,23 @@ import {
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
 import { formatDate, formatNumber, formatQ } from '@/lib/format'
-import { creditRows, creditsForCollector, daysSincePayment } from '@/lib/mock-data'
+import { today } from '@/lib/clock'
+import { daysSincePayment, listCredits } from '@/lib/queries/credits'
 import { requireCollector } from '@/lib/session'
 
 export default async function FieldCollectPage({ params }: PageProps<'/[locale]'>) {
   const { locale } = await params
   setRequestLocale(locale)
   const { collectorId } = await requireCollector()
+  const asOf = today()
 
   const t = await getTranslations('field.collect')
   const tc = await getTranslations('common')
   const tCredits = await getTranslations('credits')
 
-  const own = creditsForCollector(collectorId).filter(
-    (credit) => credit.cancelledAt === null,
+  const rows = (await listCredits({ collectorId }, { status: 'active' })).sort(
+    (a, b) => daysSincePayment(b) - daysSincePayment(a),
   )
-  const rows = creditRows(own).sort((a, b) => daysSincePayment(b) - daysSincePayment(a))
   const portfolio = rows.reduce((sum, row) => sum + row.outstanding, 0)
 
   return (
@@ -90,9 +91,11 @@ export default async function FieldCollectPage({ params }: PageProps<'/[locale]'
                       </TableCell>
                       <TableCell className="pr-4 text-right">
                         <RecordPaymentDialog
+                          creditId={row.id}
                           creditCode={row.code}
                           customerName={row.customerName}
                           outstanding={row.outstanding}
+                          today={asOf}
                           locale={locale}
                         />
                       </TableCell>

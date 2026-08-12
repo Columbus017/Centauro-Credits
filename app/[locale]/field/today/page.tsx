@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
 import { formatNumber, formatQ, formatQCents } from '@/lib/format'
-import { creditsForCollector, paymentRows } from '@/lib/mock-data'
+import { lastCollectionDate, listPayments } from '@/lib/queries/payments'
 import { requireCollector } from '@/lib/session'
 
 export default async function FieldTodayPage({ params }: PageProps<'/[locale]'>) {
@@ -28,14 +28,11 @@ export default async function FieldTodayPage({ params }: PageProps<'/[locale]'>)
   const tc = await getTranslations('common')
   const tPayments = await getTranslations('payments')
 
-  const ownCreditIds = new Set(
-    creditsForCollector(collectorId).map((credit) => credit.id),
-  )
-  const mine = paymentRows().filter((row) => ownCreditIds.has(row.creditId))
-
-  // "Today" is the most recent day this collector recorded, while data is mocked.
-  const latestDate = mine.find((row) => !row.voided)?.date ?? ''
-  const rows = mine.filter((row) => row.date === latestDate)
+  // The legacy `listIncomesOp.php` asked for a date and defaulted to none; the
+  // screen shows the collector's latest working day, which on a normal day is
+  // today and after a weekend is the last one they actually booked money.
+  const date = await lastCollectionDate(collectorId)
+  const rows = date ? await listPayments({ collectorId }, { date }) : []
   const total = rows
     .filter((row) => !row.voided)
     .reduce((sum, row) => sum + row.amount, 0)

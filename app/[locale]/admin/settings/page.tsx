@@ -1,11 +1,11 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { AdminTabs } from '@/components/admin-tabs'
+import { CommerceCard } from '@/components/forms/commerce-card'
 import { AppShell } from '@/components/app-shell'
 import { FormField } from '@/components/form-field'
 import { LocaleSwitcher } from '@/components/locale-switcher'
 import { PageHeader } from '@/components/page-header'
-import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -14,8 +14,8 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
-import { GOOD_RECORD_DAYS, INTEREST_RATE } from '@/lib/mock-data'
+import { DEFAULT_INTEREST_RATE, GOOD_RECORD_DAYS } from '@/lib/ledger'
+import { listCommerce } from '@/lib/queries/entities'
 import { requireAdmin } from '@/lib/session'
 
 export default async function AdminSettingsPage({ params }: PageProps<'/[locale]'>) {
@@ -24,7 +24,7 @@ export default async function AdminSettingsPage({ params }: PageProps<'/[locale]
   await requireAdmin()
 
   const t = await getTranslations('admin.settings')
-  const tc = await getTranslations('common')
+  const commerce = await listCommerce()
 
   return (
     <AppShell title={t('title')}>
@@ -38,15 +38,20 @@ export default async function AdminSettingsPage({ params }: PageProps<'/[locale]
             <CardDescription>{t('businessDescription')}</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-5 sm:grid-cols-2">
+            {/* Read-only, and honestly so: the rate lives per credit
+                (`credits.interest_rate`, so historical rows stay correct) and
+                the grace window is a constant in `lib/ledger.ts`. Making these
+                editable needs a settings table that does not exist. */}
             <FormField
               label={t('interestRate')}
               htmlFor="interest-rate"
-              hint={t('interestRateHint')}
+              hint={t('readOnly')}
             >
               <Input
                 id="interest-rate"
                 className="h-10 font-mono"
-                defaultValue={`${INTEREST_RATE * 100}%`}
+                defaultValue={`${DEFAULT_INTEREST_RATE * 100}%`}
+                readOnly
               />
             </FormField>
             <FormField
@@ -58,14 +63,12 @@ export default async function AdminSettingsPage({ params }: PageProps<'/[locale]
                 id="good-record-days"
                 className="h-10 font-mono"
                 defaultValue={GOOD_RECORD_DAYS}
+                readOnly
               />
             </FormField>
             <FormField label={t('currency')} htmlFor="currency" className="sm:col-span-2">
               <Input id="currency" className="h-10 font-mono" defaultValue="GTQ (Q)" readOnly />
             </FormField>
-            <div className="sm:col-span-2">
-              <Button size="lg">{tc('save')}</Button>
-            </div>
           </CardContent>
         </Card>
 
@@ -79,15 +82,12 @@ export default async function AdminSettingsPage({ params }: PageProps<'/[locale]
               <LocaleSwitcher />
             </FormField>
 
-            <div className="flex items-start justify-between gap-4 border-t border-border pt-5">
-              <div className="space-y-1">
-                <p className="text-sm font-medium">{t('notifications')}</p>
-                <p className="text-xs text-muted-foreground">{t('notificationsHint')}</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
           </CardContent>
         </Card>
+
+        <div className="lg:col-span-2">
+          <CommerceCard commerce={commerce} />
+        </div>
       </div>
     </AppShell>
   )
