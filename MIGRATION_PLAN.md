@@ -1,7 +1,7 @@
 # Centauro Créditos — PHP → Next.js Migration Plan
 
-**Status:** Phases 0–3 merged. Phase 4 is code-complete and awaiting review. The ETL still needs one run against the real dump.
-**Last updated:** 2026-08-11
+**Status:** Phases 0–4 merged. Phase 5 is code-complete and awaiting review. The ETL still needs one run against the real dump.
+**Last updated:** 2026-08-12
 
 ---
 
@@ -32,7 +32,7 @@ The design was drawn for a generic US lending product ("Lendly", USD, credit sco
 | Mutations | Server Actions + `zod` — replaces `BLL/*.php` + jQuery AJAX | ✅ in place |
 | Auth | Auth.js v5 Credentials provider, JWT session, role in token | ✅ in place |
 | Passwords | `bcryptjs` — verifies the existing PHP `$2y$` hashes, no resets | ✅ in place |
-| PDF | `@react-pdf/renderer` for reports; print-CSS for receipts | ⬜ Phase 5 |
+| PDF | `@react-pdf/renderer` for reports; print-CSS for receipts | ✅ in place |
 | Deploy | Docker + docker-compose → Dokploy | ⬜ Phase 6 |
 
 ---
@@ -47,8 +47,8 @@ All work happens in `centauro_credits/`. **Each phase gets its own branch, cut f
 | 1 | `phase-1-design-port` | ✅ merged |
 | 2 | `phase-2-postgres-migration` | ✅ merged |
 | 3 | `phase-3-auth` | ✅ merged |
-| 4 | `phase-4-data-wiring` | ✅ complete, awaiting merge |
-| 5 | `phase-5-reports` | ⬜ |
+| 4 | `phase-4-data-wiring` | ✅ merged |
+| 5 | `phase-5-reports` | ✅ complete, awaiting merge |
 | 6 | `phase-6-deployment` | ⬜ |
 
 Protocol: `git checkout main && git pull && git checkout -b phase-N-<name>` → implement → commit in logical chunks (not one giant commit) → report the diff summary and stop for review → on approval, merge and cut the next branch. Phase 4 may warrant sub-branches per vertical slice.
@@ -213,9 +213,43 @@ Every screen reads through Prisma and every form is a Server Action. `lib/querie
 
 **One defect only running the app revealed:** adding `onValueChange` to `SelectField` — a Server Component — made it forward a function to a Client Component unconditionally, which 500'd `/clients`, `/credits` and `/payments`. The build was clean throughout.
 
-### ⬜ Phase 5 — Reports
+### ✅ Phase 5 — Reports (complete, 3 commits)
 
-Three reports exist (`ReportsPDF/` + `BLL/rpt*.php`), built as PHP-concatenated HTML rendered by a vendored mPDF: **Credits**, **Customers by Collector**, **Income by Collector**. Rebuild as `@react-pdf/renderer` documents served from `app/api/reports/[report]/route.ts` with filters as search params. The `/reports` screen is already built as the filter + download UI. Receipts use the existing print-CSS route.
+The three legacy reports, rebuilt as `@react-pdf/renderer` documents served from `/api/reports/[report]` and previewed on screen: **Clientes por cobrador**, **Créditos terminados por cobrador**, **Ingresos por fecha**. Receipts keep the Phase 1 print-CSS route, untouched.
+
+**The plan said the `/reports` screen was already the filter UI. It was not.** Phase 1 shipped three cards with static filter chips and a dead button, and the chips were invented — `route` and `status` filters that no report ever had. All three legacy forms open with a mandatory *Cobrador* select; the second adds a date range and the third a single date. `lib/reports.ts` now says so, and the cards carry real inputs.
+
+**One dataset, two renderers.** `lib/reports.ts` holds the filter schemas, the column layouts and the cell formatting; `lib/queries/reports.ts` returns positional rows in that column order. The screen table and the PDF both read it, so a downloaded report says exactly what the table above the download button said. The legacy pair had already drifted: the AJAX table for the income report listed six columns and no PDF for it existed at all.
+
+**Filters are the URL.** The screen renders from search params and the download link carries the parsed filters to the API route. `reports-ajax.js` kept two disconnected copies — the table read the form on submit and `printReport1()` re-read it at click time, so editing a filter after generating a list printed something other than what was on screen.
+
+**Ten legacy defects do not survive the port:**
+
+1. **The *Fecha de cancelación* column printed today's date on every row of every run.** `Credits.php` read `$credits['dateP']` from a query that aliased the column `fechaP`; PHP handed the undefined value to `date_create()`, which answers *now*.
+2. **The income report had no PDF.** `reports.php` renders an *Imprimir* button calling `printReport3()`, which is defined nowhere in `js/`. It threw a ReferenceError. That document now exists.
+3. **No authentication anywhere.** `BLL/rpt*.php` and `ReportsPDF/*.php` never include `functions/sesiones.php` — an unauthenticated GET pulled a collector's whole book. Now 401 without a session, 403 for a collector.
+4. **`$_POST` interpolated straight into SQL**, in six statements across five files. Every filter is now zod-validated before it reaches a query.
+5. **`d/m/Y` through `strtotime()`**, which reads `01/02/2026` as January 2nd — a silent off-by-a-month on any ambiguous day. ISO only.
+6. **A deactivated collector printed a blank heading.** The name subselect carried `AND state = 0` while the row query did not, so the table had rows and the title had nobody.
+7. **Balances read off the last `balance` row and totalled in browser floats.** Both are derived now, through `lib/ledger.ts` in centavos.
+8. **Every download was named `NombreReporte.pdf`**, so a second one overwrote the first. Names are dated and carry the report.
+9. **mPDF fetched Bootstrap and W3.CSS from two CDNs at render time**, so no PDF could be produced without outbound internet. Nothing here leaves the process.
+10. **The table heading did not repeat across pages.** It does, and rows no longer split across a page break.
+
+**Beyond the original plan, all deliberate:**
+
+- **The route answers status codes rather than calling `forbidden()`.** `proxy.ts` excludes `/api`, so the session check in the handler is not a repeat of layer 1 — it is the only one, which is exactly why `lib/session.ts` reads at the data source. `forbidden()` / `unauthorized()` are Server Component interrupts and have no error boundary to render into in a route handler.
+- **Report 2 selects on the stored `cancelled_at` while every figure it shows is derived.** The column is written by `syncCredit()` from the same `payoffState()` the projection uses, so they agree by construction — and doing the range in SQL keeps the report from walking the ledger of every credit a collector ever wrote.
+- **Report 2 has no total**, because its legacy tab had no total box. The other two keep *Total por recaudar* and *Total ingresos*.
+- **Landscape LETTER.** Seven columns wrapped client names onto three lines in the legacy portrait layout.
+- **Hyphenation is off.** react-pdf's default callback is English and split a heading into "Fecha de can-celación"; a Guatemalan surname is not a word it may break either.
+- **No logo.** The legacy PDFs embedded `images/logo.png`; this app has no such asset, so the header is typographic and matches the shell's wordmark.
+- **The locale is a search param**, since the PDF route lives outside `app/[locale]/`. A report downloaded from `/en/reports` reads in English, columns and dates included.
+- 67 Vitest cases now, 15 of them new.
+
+**Verified by driving the running production build** (`pnpm build && pnpm start`, per Phase 3's lesson), then reconciling every figure against SQL: the auth matrix on the endpoint (401 anonymous, 403 collector, 200 admin); rejection of `abc`, `0`, `-1`, `2.5` and `1 OR 1=1` as collector ids, of `01/02/2026` as a date, of an inverted range, and of an unknown report name — 400 each, 404 for a collector who does not exist. Report 1 totals Q4,925.00 over five credits and report 3 totals Q470.00 over three payments, both matching `SUM` exactly; report 2 prints the real payoff dates 24/02/2026 and 16/05/2026 where the legacy printed the day of the run. A range of `from = to = 2026-05-16` returns that day's payoff, confirming both ends inclusive as SQL `BETWEEN` was; a range with nothing in it renders the empty line. The screen's table and the PDF agree row for row. Sixty injected credits produce a three-page document with the heading repeated on each page and a total of Q94,970.00, again exact; the fixture was dropped and the database re-seeded afterwards.
+
+**Not verified:** the `/reports` listing renders every row, like the other list screens — sixty is not a real book, and this is the same open risk. Only Latin-1 text has been through the standard fonts; a character outside WinAnsi would need a registered font file. The receipt print path was not re-exercised this phase.
 
 ### ⬜ Phase 6 — Deployment
 
@@ -245,9 +279,9 @@ Multi-stage `Dockerfile` (Next standalone); `docker-compose.yml` with `app` + `p
 
 **In `centauro_credits/`:**
 
-- `app/[locale]/**` — 27 screens (Phase 4 added `edit` for clients, collectors, routes and credits) plus `forbidden.tsx`, `unauthorized.tsx` and the `denied/` rewrite target; `app/api/auth/[...nextauth]/route.ts`; `app/globals.css`, `proxy.ts`, `next.config.ts`
+- `app/[locale]/**` — 27 screens (Phase 4 added `edit` for clients, collectors, routes and credits) plus `forbidden.tsx`, `unauthorized.tsx` and the `denied/` rewrite target; `app/api/auth/[...nextauth]/route.ts`, `app/api/reports/[report]/route.ts`; `app/globals.css`, `proxy.ts`, `next.config.ts`
 - `components/ui/*` (15 primitives) + `app-shell`, `page-header`, `stat-card`, `status-badge`, `theme-toggle`, `summary-stat`, `form-field`, `search-input`, `select-field`, `link-button`, `admin-tabs`, `locale-switcher`, `record-payment-dialog`, `new-user-dialog`, `daily-close-form`, `credit-history-form`, `credit-amount-fields`, `print-button`, `dashboard/charts`, `app-shell-frame`, `login-form`, `auth-notice`, `theme-script`, `forms/{form-errors,action-button,collector-form,route-form,customer-form,credit-form,commerce-card}`
-- `lib/{utils,format,mock-data}.ts`; Phase 2 added `lib/{ledger,db,prisma-client,db-utils}.ts`; Phase 3 added `lib/{auth,auth.config,roles,session}.ts`, `lib/actions/auth.ts` and `types/next-auth.d.ts`; Phase 4 added `lib/clock.ts`, `lib/reports.ts`, `lib/queries/*` and `lib/actions/{shared,form-state,entities,credits,users}.ts`
+- `lib/{utils,format,mock-data}.ts`; Phase 2 added `lib/{ledger,db,prisma-client,db-utils}.ts`; Phase 3 added `lib/{auth,auth.config,roles,session}.ts`, `lib/actions/auth.ts` and `types/next-auth.d.ts`; Phase 4 added `lib/clock.ts`, `lib/reports.ts`, `lib/queries/*` and `lib/actions/{shared,form-state,entities,credits,users}.ts`; Phase 5 rewrote `lib/reports.ts` and added `lib/report-strings.ts`, `lib/queries/reports.ts` and `components/reports/{report-pdf,report-form,report-table}.tsx`
 - `i18n/{routing,navigation,request}.ts`, `messages/{es,en}.json`
 - `prisma/{schema.prisma,seed.ts,migrations/}`, `prisma.config.ts`, `scripts/{migrate-from-mysql.ts,legacy-fixture.sql}`, `docker-compose.dev.yml`
 - Phase 6: `Dockerfile`, `docker-compose.yml`, `app/api/health/route.ts`
@@ -264,6 +298,8 @@ Multi-stage `Dockerfile` (Next standalone); `docker-compose.yml` with `app` + `p
 
 **Phase 4 (done against the seed; repeat against migrated data):** every step above was driven through the running app and then read back out of Postgres — see the phase entry for the figures. What is *not* done is the side-by-side diff against the legacy app on the same data, which needs the real dump. Re-run the sequence after the ETL: create a credit, pay to zero, void a mid-sequence payment, edit the principal, soft-delete, and submit a daily close, comparing each result against what `centauro_old` produces from the same input.
 
+**Phase 5 (done against the seed):** the endpoint's auth matrix and every rejected filter; each report's figures read back out of the generated PDF and reconciled against `SUM`; both range ends; both locales; a three-page document from an injected fixture. Two things are worth repeating on any report change: read the PDF's text back rather than trusting that it rendered, and check that the screen table and the document still agree row for row — they share `reportColumns` precisely so that they must.
+
 **Suggested test setup** (none exists in either project): Vitest for the ledger math — `recalculateBalances`, payoff/`bad_record` detection, and void-cascade are the three places a bug silently corrupts money.
 
 ---
@@ -272,7 +308,8 @@ Multi-stage `Dockerfile` (Next standalone); `docker-compose.yml` with `app` + `p
 
 - **No schema dump yet.** Phase 2 was built against a reconstructed schema and the ETL has never seen real data. Phase 4 was built and verified against the seed, so this now blocks only the side-by-side parity diff and the volume questions below.
 - **List screens load a credit's whole ledger to derive its figures.** Correct, and it keeps the list and the detail in agreement, but it has never met a real table. If the migrated book turns out to be large, `/credits` and `/clients` are the first places to feel it, and the fix is a `DISTINCT ON` projection rather than abandoning the derivation.
-- **Search and filter controls on the list screens are still inert.** They were built in Phase 1 and Phase 4 did not wire them; every list renders in full.
+- **Search and filter controls on the list screens are still inert.** They were built in Phase 1 and Phase 4 did not wire them; every list renders in full. `/reports` is now the same shape: its filters work, but the generated listing renders every row with no paging.
+- **The report PDFs use only the standard PDF fonts.** Helvetica covers WinAnsi, which covers Spanish and every accented name in the seed, but a character outside it would render blank until a font file is registered. Worth a look once the real dump lands and the true charset of the migrated names is known.
 - ~~**Hard-delete → soft-delete** for credits~~ — done; `deleteCredit` soft-deletes the credit and its ledger. Nothing in the app un-deletes one yet, so a mistaken delete needs SQL.
 - Old money columns are floats; some historical balances will not reconcile to the penny. Surface during ETL rather than papering over.
 - MySQL 5.7 is EOL and the compose file commits DB credentials in plaintext. Rotate during Phase 6.
