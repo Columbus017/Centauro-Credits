@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { db } from '@/lib/db'
-import { fromDbAmount, fromDbDate, fromDbDateOrNull } from '@/lib/db-utils'
+import { fromDbAmount, fromDbDate, fromDbDateOrNull, isoDate } from '@/lib/db-utils'
 import {
   fromCents,
   outstandingCents,
@@ -125,7 +125,21 @@ function scopeWhere({ collectorId }: Scope) {
 
 export async function listCredits(
   scope: Scope,
-  filter: { status?: 'active' | 'cancelled' | 'badRecord'; customerId?: number } = {},
+  filter: {
+    status?: 'active' | 'cancelled' | 'badRecord'
+    customerId?: number
+    /**
+     * Credits paid off within a closed date range, for the *Créditos
+     * terminados* report.
+     *
+     * Selection reads the stored `cancelled_at` while every figure the report
+     * shows is still derived. The column is written by `syncCredit()` from the
+     * same `payoffState()` the projection uses, so the two agree by
+     * construction — and doing the range in SQL is what keeps the report from
+     * walking the ledger of every credit the collector ever wrote.
+     */
+    cancelledBetween?: { from: string; to: string }
+  } = {},
 ) {
   const credits = await db.credit.findMany({
     where: {
@@ -135,6 +149,14 @@ export async function listCredits(
       ...(filter.status === 'active' ? { cancelledAt: null } : {}),
       ...(filter.status === 'cancelled' ? { cancelledAt: { not: null }, badRecord: false } : {}),
       ...(filter.status === 'badRecord' ? { badRecord: true } : {}),
+      ...(filter.cancelledBetween
+        ? {
+            cancelledAt: {
+              gte: isoDate(filter.cancelledBetween.from),
+              lte: isoDate(filter.cancelledBetween.to),
+            },
+          }
+        : {}),
     },
     include: creditInclude,
     orderBy: { code: 'asc' },

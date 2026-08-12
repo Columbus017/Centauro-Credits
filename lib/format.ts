@@ -92,6 +92,21 @@ export function formatDateShort(iso: string, locale?: string) {
   }).format(parseISODate(iso))
 }
 
+/**
+ * `1 de enero de 2024` — report headings, which read as a sentence rather than
+ * a table cell.
+ *
+ * `Credits.php` built this phrase with `strftime()` plus a twelve-branch
+ * `if/else` translating the English month names back into Spanish, because the
+ * container's locale was never set. `Intl` knows the month names already.
+ */
+export function formatDateLong(iso: string, locale?: string) {
+  if (!iso) return '—'
+  return new Intl.DateTimeFormat(intlLocale(locale), { dateStyle: 'long' }).format(
+    parseISODate(iso),
+  )
+}
+
 /** `ene` — short month name from a `YYYY-MM` key, for chart axes. */
 export function formatMonth(yearMonth: string, locale?: string) {
   const [year, month] = yearMonth.split('-').map(Number)
