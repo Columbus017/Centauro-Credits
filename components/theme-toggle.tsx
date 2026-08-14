@@ -36,7 +36,10 @@ export function ThemeToggle() {
 
   return (
     <Button variant="ghost" size="icon" onClick={toggle} aria-label={t('toggleTheme')}>
-      {isDark ? <Moon className="size-4" /> : <Sun className="size-4" />}
+      {/* The icon is the destination, not the current state: in the dark it
+          offers the sun. A moon shown while the screen is already dark reads
+          as "you are here" on a control whose only job is to go elsewhere. */}
+      {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
     </Button>
   )
 }
