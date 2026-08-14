@@ -462,30 +462,58 @@
   "reports": {
     "title": "Reportes",
     "description": "Genere los reportes operativos en PDF.",
-    "generate": "Generar PDF",
-    "filters": "Filtros",
-    "recent": "Reportes recientes",
-    "recentEmpty": "Aún no se ha generado ningún reporte.",
-    "generatedBy": "Generado por",
+    "generate": "Generar listado",
+    "download": "Descargar PDF",
+    "results": "Resultados",
+    "empty": "No hay registros para el filtro seleccionado.",
+    "rowCount": "{count, plural, =0 {Sin registros} one {# registro} other {# registros}}",
+    "notFound": "El cobrador seleccionado ya no existe.",
     "defs": {
-      "credits": {
-        "title": "Reporte de créditos",
-        "description": "Todos los créditos colocados con capital, total a pagar y saldo pendiente."
-      },
       "customersByCollector": {
         "title": "Clientes por cobrador",
-        "description": "Listado de clientes agrupado por cobrador y ruta."
+        "description": "Listado de clientes con saldo pendiente.",
+        "heading": "Clientes de {collector}"
+      },
+      "credits": {
+        "title": "Créditos terminados por cobrador",
+        "description": "Listado de créditos terminados en un rango de fechas.",
+        "heading": "Créditos terminados de {collector}"
       },
       "incomeByCollector": {
-        "title": "Ingresos por cobrador",
-        "description": "Pagos recibidos y cierres de caja resumidos por cobrador."
+        "title": "Ingresos por fecha",
+        "description": "Listado de ingresos en una fecha determinada por cobrador.",
+        "heading": "Ingresos de {collector}"
       }
     },
     "filterLabels": {
+      "collector": "Cobrador",
       "dateRange": "Rango de fechas",
+      "date": "Fecha",
+      "from": "Fecha inicial",
+      "to": "Fecha final"
+    },
+    "subtitle": {
+      "dateRange": "Del {from} al {to}",
+      "date": "Al {date}"
+    },
+    "columns": {
+      "code": "No. de tarjeta",
+      "startDate": "Fecha de inicio",
+      "client": "Cliente",
+      "commerce": "Comercio",
       "route": "Ruta",
-      "status": "Estado",
-      "collector": "Cobrador"
+      "outstanding": "Saldo",
+      "totalDue": "Total",
+      "cancelledAt": "Fecha de cancelación",
+      "payment": "Pago"
+    },
+    "totals": {
+      "outstanding": "Total por recaudar",
+      "payment": "Total ingresos"
+    },
+    "pdf": {
+      "generatedOn": "Fecha: {date}",
+      "page": "Página {page} de {total}"
     }
   },
   "admin": {
