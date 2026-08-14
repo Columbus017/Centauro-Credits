@@ -1,0 +1,42 @@
+# Everything here is either rebuilt inside the image, useless to it, or must
+# never enter it. Keep it in step with `.gitignore` — the two exclude the same
+# things for different reasons.
+
+# Rebuilt by the `deps` stage. Copying the host's tree would also carry
+# darwin-arm64 native binaries into a linux image.
+node_modules
+.pnpm-store
+
+# Rebuilt by the `builder` stage.
+.next
+out
+build
+lib/generated
+*.tsbuildinfo
+next-env.d.ts
+
+# `next build` copies any `.env` it finds into `.next/standalone`, so a local
+# one would be baked into the published image. Production values come from
+# Dokploy's environment, never from a file in the build context.
+.env
+.env.*
+!.env.example
+*.pem
+
+# History, editors, and the host's own noise.
+.git
+.gitignore
+.github
+.vscode
+.idea
+.DS_Store
+npm-debug.log*
+pnpm-debug.log*
+
+# Documentation and local-only tooling. The migration plan and the agent
+# instructions are for people working on the repository, not for the runtime.
+*.md
+docker-compose*.yml
+Dockerfile
+.dockerignore
+coverage

@@ -1,0 +1,128 @@
+# Centauro Créditos — production stack, deployed by Dokploy.
+#
+# No Traefik labels and no published ports: Dokploy injects the routing labels
+# and terminates TLS itself. `app` joins `dokploy-network` so its proxy can
+# reach it; everything else stays on the internal network.
+#
+# **Every secret comes from the environment.** `${VAR:?…}` makes compose refuse
+# to start when one is missing, rather than falling back to a default that then
+# lives forever. The legacy `docker-compose.yml` committed the MySQL root
+# password, the application password and the phpMyAdmin credentials in
+# plaintext — all three are burned and must not be reused here.
+#
+# See `.env.production.example` for the full list.
+
+name: centauro
+
+services:
+  # -------------------------------------------------------------------------
+  # postgres — the only stateful thing here.
+  # -------------------------------------------------------------------------
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Nothing else may start until Postgres is accepting connections — the
+    # migration job in particular, which would otherwise fail the deploy on a
+    # cold boot.
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    # Deliberately no `ports:`. The database is reachable only from this
+    # network; back it up with `docker compose exec` (see README).
+    networks: [internal]
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # migrate — runs to completion before the app starts, on every deploy.
+  # -------------------------------------------------------------------------
+  #
+  # `prisma migrate deploy` applies committed migrations only: it never
+  # generates one, never resets, and does nothing when the database is already
+  # current. Carrying the full toolchain makes this image large, but it is the
+  # same `deps` layer the build already produced, and it is what runs the
+  # one-shot MySQL ETL and the seed (see README).
+  migrate:
+    build:
+      context: .
+      target: migrator
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+    # A one-shot job. Restarting it on exit would loop forever.
+    restart: 'no'
+
+  # -------------------------------------------------------------------------
+  # app — the Next standalone server.
+  # -------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      target: runner
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      # Signs the session cookie. Rotating it signs everyone out.
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required}
+      # Auth.js refuses to derive its own URL from the request host unless told
+      # to, and answers `UntrustedHost` on every request instead. `lib/auth.ts`
+      # already sets `trustHost`; this is the belt to that pair of braces, and
+      # it is only safe because the proxy in front sets `X-Forwarded-Host`.
+      AUTH_TRUST_HOST: 'true'
+    expose:
+      - '3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # The schema is current before the first request, never alongside it.
+      migrate:
+        condition: service_completed_successfully
+    # `node server.js` is PID 1; without an init it reaps no children and
+    # forwards no signals of its own.
+    init: true
+    # Next finishes in-flight requests and pending `after()` callbacks on
+    # SIGTERM. The docs ask for 10–30 seconds of drain.
+    stop_grace_period: 30s
+    networks: [internal, dokploy-network]
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # adminer — opt-in, and meant to be taken down again.
+  # -------------------------------------------------------------------------
+  #
+  # Behind a profile because it is a database console: it starts only with
+  # `--profile tools` and stops with `docker compose --profile tools down
+  # adminer`. The legacy stack ran phpMyAdmin permanently on the public proxy
+  # network with the credentials baked into the compose file.
+  adminer:
+    image: adminer:5
+    profiles: [tools]
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    expose:
+      - '8080'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal, dokploy-network]
+    restart: unless-stopped
+
+networks:
+  internal:
+    driver: bridge
+  # Created by Dokploy; its Traefik instance is attached to it. Locally,
+  # `docker network create dokploy-network` once.
+  dokploy-network:
+    external: true
+
+volumes:
+  postgres_data:
