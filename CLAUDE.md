@@ -20,6 +20,7 @@ The visual design comes from `../centauro_assets/uploads/lending-administration-
 - `pnpm db:up` — local Postgres 16 via `docker-compose.dev.yml` (host port **5433**; 5432 is often taken)
 - `pnpm db:migrate` — create/apply a Prisma migration; `pnpm db:seed` — load `lib/mock-data.ts`
 - `pnpm db:migrate-legacy` — the one-shot MySQL → Postgres ETL (see below)
+- `docker compose --env-file .env.production up -d --build` — the production stack, locally. Needs `docker network create dokploy-network` once; Dokploy provides it in production.
 
 Copy `.env.example` to `.env` before any database command. It also holds `AUTH_SECRET`, without which nothing behind the login renders.
 
@@ -27,7 +28,7 @@ Every seeded user's password is `centauro` (development only): `mveliz` is the a
 
 Package manager is pnpm (`packageManager: pnpm@11.20.0`). Single-package pnpm workspace (`pnpm-workspace.yaml`), not a monorepo. Native build scripts must be allowlisted under `allowBuilds:` in `pnpm-workspace.yaml` or `pnpm install` fails.
 
-There is no test setup in this project yet.
+Tests are Vitest over `lib/**/*.test.ts` (`vitest.config.mts`) — the ledger arithmetic, the route policy, the daily-close formula and the clock. There is no browser or component test setup.
 
 ## Architecture
 
@@ -94,6 +95,19 @@ Screens never touch Prisma directly. `lib/queries/*` returns plain row shapes (n
 - Import `Link`, `redirect`, `usePathname`, `useRouter` from `@/i18n/navigation`, **not** from `next/link` or `next/navigation`.
 - Every user-facing string goes in `messages/es.json` + `messages/en.json` as it is written. No hardcoded copy.
 - Server components must call `setRequestLocale(locale)` before using translations so they stay statically renderable.
+
+### Deployment
+
+Docker on Dokploy — see the README for the runbook. `Dockerfile` builds two targets from one `deps` layer: `runner` (the `output: 'standalone'` server, non-root, no source, no pnpm) and `migrator` (the full toolchain, which applies migrations and is also how the seed and the ETL are run in production). `docker-compose.yml` carries no Traefik labels and no published ports; Dokploy injects the routing.
+
+Four things about it are load-bearing:
+
+- **The build must not need a database.** Every screen reads the session and is therefore dynamic — except `/login`, which is the screen you see before a session. It carries `export const dynamic = 'force-dynamic'` for exactly that reason: without it Next prerenders it at build time, `publicHeadline()` runs against whatever database the builder had, and an image build fails wherever there is none.
+- **`ENV HOSTNAME=0.0.0.0`.** Docker sets `HOSTNAME` to the container id and Next's standalone server binds to `process.env.HOSTNAME || '0.0.0.0'`.
+- **Migrations are a service, not a startup step.** `prisma migrate deploy` runs to completion before `app` starts, so the schema is never current alongside the first request. It is idempotent; every deploy re-runs it.
+- **Secrets are `${VAR:?…}`.** A missing one fails the deploy rather than falling back to a default. The legacy compose file committed three passwords in plaintext — they are in the history and are burned.
+
+`/api/health` is the only route that answers without a session. Keep it that way, and keep it saying nothing but whether Postgres is reachable: `health.php` published the database host, name and user to anyone who asked.
 
 ## Domain notes
 

@@ -42,5 +42,6 @@ next-env.d.ts
 
 /lib/generated/prisma
 
-# ...but the example file is a template, not a secret.
+# ...but the example files are templates, not secrets.
 !.env.example
+!.env.production.example

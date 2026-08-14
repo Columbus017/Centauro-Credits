@@ -1,7 +1,7 @@
 # Centauro Créditos — PHP → Next.js Migration Plan
 
-**Status:** Phases 0–4 merged. Phase 5 is code-complete and awaiting review. The ETL still needs one run against the real dump.
-**Last updated:** 2026-08-12
+**Status:** Phases 0–5 merged. Phase 6 is code-complete and awaiting review. The ETL still needs one run against the real dump, and nothing has yet been deployed to the real host.
+**Last updated:** 2026-08-14
 
 ---
 
@@ -33,7 +33,7 @@ The design was drawn for a generic US lending product ("Lendly", USD, credit sco
 | Auth | Auth.js v5 Credentials provider, JWT session, role in token | ✅ in place |
 | Passwords | `bcryptjs` — verifies the existing PHP `$2y$` hashes, no resets | ✅ in place |
 | PDF | `@react-pdf/renderer` for reports; print-CSS for receipts | ✅ in place |
-| Deploy | Docker + docker-compose → Dokploy | ⬜ Phase 6 |
+| Deploy | Docker + docker-compose → Dokploy | ✅ in place |
 
 ---
 
@@ -48,8 +48,8 @@ All work happens in `centauro_credits/`. **Each phase gets its own branch, cut f
 | 2 | `phase-2-postgres-migration` | ✅ merged |
 | 3 | `phase-3-auth` | ✅ merged |
 | 4 | `phase-4-data-wiring` | ✅ merged |
-| 5 | `phase-5-reports` | ✅ complete, awaiting merge |
-| 6 | `phase-6-deployment` | ⬜ |
+| 5 | `phase-5-reports` | ✅ merged |
+| 6 | `phase-6-deployment` | ✅ complete, awaiting merge |
 
 Protocol: `git checkout main && git pull && git checkout -b phase-N-<name>` → implement → commit in logical chunks (not one giant commit) → report the diff summary and stop for review → on approval, merge and cut the next branch. Phase 4 may warrant sub-branches per vertical slice.
 
@@ -251,9 +251,34 @@ The three legacy reports, rebuilt as `@react-pdf/renderer` documents served from
 
 **Not verified:** the `/reports` listing renders every row, like the other list screens — sixty is not a real book, and this is the same open risk. Only Latin-1 text has been through the standard fonts; a character outside WinAnsi would need a registered font file. The receipt print path was not re-exercised this phase.
 
-### ⬜ Phase 6 — Deployment
+### ✅ Phase 6 — Deployment (complete, 3 commits)
 
-Multi-stage `Dockerfile` (Next standalone); `docker-compose.yml` with `app` + `postgres:16` + optional `adminer`, no Traefik labels (Dokploy injects them). Port `health.php` to `app/api/health/route.ts`. **Secrets are committed in plaintext in the old `docker-compose.yml` — do not carry them over; rotate and use Dokploy env vars.**
+A multi-stage `Dockerfile` over `output: 'standalone'`, a `docker-compose.yml` for Dokploy, `/api/health`, and a README that is the runbook. The legacy image was `php:8.1-apache` with `COPY . /var/www/html/` — the whole repository, secrets and `.git` included, served as the document root by root.
+
+**Two images out of one `deps` layer.** `runner` is the Next standalone server on `node:24-alpine`: 218 MB, non-root, no pnpm, no source, no dev dependencies, and only the `node_modules` files the traced routes import. `migrator` keeps the full toolchain, applies the migrations, and is also how the seed and the one-shot MySQL ETL are run against the deployed database — the phase that still has to happen needs a container that can run it. It is large (1.5 GB), but it is the same `deps` layer the build already produced, so the marginal cost is the source copy.
+
+**Migrations are a service, not a startup step.** `prisma migrate deploy` runs to completion — gated on Postgres's own healthcheck — before `app` starts, so the schema is never being changed alongside the first request, and a failed migration fails the deploy instead of half-serving. `deploy` never generates a migration and never resets, which is the only form of the command that belongs near real data.
+
+**Every secret is `${VAR:?…}`.** Compose refuses to start when one is missing rather than falling back to a default that then lives forever. `.env.production.example` lists them with the commands that generate them, and says plainly that the three passwords in the legacy compose file are in the repository history and must be rotated rather than reused. `adminer` is behind a `tools` profile; the legacy stack ran phpMyAdmin permanently on the public proxy network with its credentials in the file.
+
+**`/api/health` answers what a probe needs and nothing else** — reachable or not, 503 when not, with a bounded check so a hung database cannot stop the orchestrator from restarting the container. `health.php` published `DB_HOST`, `DB_NAME`, `DB_USER`, the PHP version and the Apache banner to anyone who asked, unauthenticated.
+
+**Beyond the original plan, all deliberate:**
+
+- **The README replaced the `create-next-app` boilerplate** with the deploy runbook: first deploy, the forwarded-header requirement, the ETL commands, and a `pg_dump` line. Nothing in either project has ever backed this database up.
+- **`docker compose` in the migrator is the ETL's production entry point.** Phase 2 shipped a script that could only be run from a developer's machine against a tunnelled database.
+- **`init: true` and a 30-second `stop_grace_period`**, so `node server.js` as PID 1 reaps its children and Next gets the drain window its docs ask for.
+- **The dev compose file is untouched.** `docker-compose.dev.yml` still owns the 5433 Postgres and the scratch MySQL; the production file shares nothing with it.
+
+**Three things the container revealed that the build did not:**
+
+1. **`/login` was prerendered at build time.** It is the one screen that reads no session, so Next rendered it during the build and `publicHeadline()` ran against whatever database the builder had — meaning an image build *required* a live database, and the two figures on the panel were frozen at build time. Locally this was invisible: the dev database was up, so the build passed. `force-dynamic` now.
+2. **`ENV HOSTNAME=0.0.0.0` is mandatory.** Docker sets `HOSTNAME` to the container id and the standalone server binds `process.env.HOSTNAME || '0.0.0.0'` — left alone it binds to a name that resolves to loopback and nothing reaches it.
+3. **`next build` copies any `.env` in the context into `.next/standalone`.** Without the `.dockerignore` entry a developer's local `.env` — `AUTH_SECRET` included — would be baked into the published image.
+
+**Verified by running the built stack, not by the build:** compose refuses to start with a secret missing; `migrate` applies the schema on a cold volume, and on a second `up` reports *No pending migrations* and exits 0; the app comes up healthy and Postgres has no published port. Through the container: `/api/health` 200, `/` and `/credits` 307 to `/login` without a session, `/api/reports/*` 401 anonymous and 403 as a collector. Signing in as `mveliz` through the real login form lands on the dashboard with live figures — **no `UntrustedHost`**, which is the Phase 3 failure this phase had to not reproduce — and the collector matrix still holds in the image (`/credits` 403, `/field/collect` 200). A report PDF renders from the alpine container, so `@react-pdf/renderer` needs nothing that was left out. Stopping Postgres turns the probe to 503 and starting it turns it back to 200 without restarting the app. The seed and `pg_dump` both run from the compose file as the README documents them.
+
+**Not verified:** anything on the real host. Nothing has been deployed to Dokploy — the Traefik labels it injects, the forwarded headers it sets, its own health polling and TLS are all assumed from the legacy stack's shape. The image was built and run on arm64 (Apple Silicon); the deploy target is almost certainly amd64, and while nothing here ships a native binary, the build has not been done for that platform. No restore has been rehearsed from the `pg_dump` the README recommends.
 
 ---
 
@@ -284,7 +309,7 @@ Multi-stage `Dockerfile` (Next standalone); `docker-compose.yml` with `app` + `p
 - `lib/{utils,format,mock-data}.ts`; Phase 2 added `lib/{ledger,db,prisma-client,db-utils}.ts`; Phase 3 added `lib/{auth,auth.config,roles,session}.ts`, `lib/actions/auth.ts` and `types/next-auth.d.ts`; Phase 4 added `lib/clock.ts`, `lib/reports.ts`, `lib/queries/*` and `lib/actions/{shared,form-state,entities,credits,users}.ts`; Phase 5 rewrote `lib/reports.ts` and added `lib/report-strings.ts`, `lib/queries/reports.ts` and `components/reports/{report-pdf,report-form,report-table}.tsx`
 - `i18n/{routing,navigation,request}.ts`, `messages/{es,en}.json`
 - `prisma/{schema.prisma,seed.ts,migrations/}`, `prisma.config.ts`, `scripts/{migrate-from-mysql.ts,legacy-fixture.sql}`, `docker-compose.dev.yml`
-- Phase 6: `Dockerfile`, `docker-compose.yml`, `app/api/health/route.ts`
+- Phase 6 added `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `.env.production.example`, `app/api/health/route.ts` and a `README.md` that is the deploy runbook
 
 ---
 
@@ -300,7 +325,9 @@ Multi-stage `Dockerfile` (Next standalone); `docker-compose.yml` with `app` + `p
 
 **Phase 5 (done against the seed):** the endpoint's auth matrix and every rejected filter; each report's figures read back out of the generated PDF and reconciled against `SUM`; both range ends; both locales; a three-page document from an injected fixture. Two things are worth repeating on any report change: read the PDF's text back rather than trusting that it rendered, and check that the screen table and the document still agree row for row — they share `reportColumns` precisely so that they must.
 
-**Suggested test setup** (none exists in either project): Vitest for the ledger math — `recalculateBalances`, payoff/`bad_record` detection, and void-cascade are the three places a bug silently corrupts money.
+**Phase 6 (done locally; not done on the real host):** `docker compose up -d --build` on a cold volume, then a second `up` to confirm `migrate` is a no-op; the app reachable only through the compose network; the anonymous route matrix and a real sign-in through the login form against the built image; a report PDF out of the alpine container; the probe falling to 503 and recovering when Postgres stops and starts. Two things are worth repeating on any deployment change: **check that the image builds with no database reachable** — that is what caught the prerendered `/login` — and sign in against the *built* image rather than `pnpm start`, because `UntrustedHost` is invisible until then.
+
+**Suggested test setup** — done: Vitest covers the ledger math (`recalculateBalances`, payoff/`bad_record` detection, void-cascade), the route policy, the daily-close formula and the clock.
 
 ---
 
@@ -312,9 +339,14 @@ Multi-stage `Dockerfile` (Next standalone); `docker-compose.yml` with `app` + `p
 - **The report PDFs use only the standard PDF fonts.** Helvetica covers WinAnsi, which covers Spanish and every accented name in the seed, but a character outside it would render blank until a font file is registered. Worth a look once the real dump lands and the true charset of the migrated names is known.
 - ~~**Hard-delete → soft-delete** for credits~~ — done; `deleteCredit` soft-deletes the credit and its ledger. Nothing in the app un-deletes one yet, so a mistaken delete needs SQL.
 - Old money columns are floats; some historical balances will not reconcile to the penny. Surface during ETL rather than papering over.
-- MySQL 5.7 is EOL and the compose file commits DB credentials in plaintext. Rotate during Phase 6.
+- ~~MySQL 5.7 is EOL and the compose file commits DB credentials in plaintext.~~ — the new stack takes every secret from the environment and refuses to start without it. **The old credentials are still in the repository history and must be rotated, not reused.**
 - The mobile drawer (<1024px) has not been verified interactively.
 - ~~**Row-level scoping is written against the mock data.**~~ — done; `Scope` is threaded through every read in `lib/queries/*`.
 - `forbidden()` / `unauthorized()` depend on `experimental.authInterrupts`. It is the sanctioned mechanism in Next 16 but still flagged experimental; a Next upgrade should re-check the 403 path.
 - `next-auth` is on `5.0.0-beta.32`. It declares Next 16 support and has been in beta a long while, but it is a beta on the login path.
 - The design app pins older ranges (`@base-ui/react` 1.5, `lucide-react` 1.16) than what installed here (1.7, 1.31). No issues so far beyond the recharts 3 `Pie` behaviour noted above.
+- **Nothing has been deployed to Dokploy.** The compose file assumes what the legacy stack implies: that Dokploy injects the Traefik labels, attaches `dokploy-network`, terminates TLS and sets `X-Forwarded-Host`. The last of those is not optional — Auth.js 500s without it, and it is the first thing to check on the first real deploy.
+- **Built and run on arm64 only.** Nothing here ships a native binary, so an amd64 build should be uneventful, but it has not been done.
+- **Backups are documented, not automated, and no restore has been rehearsed.** Neither project has ever had one. This is the largest operational gap left: the ETL is a one-way door onto a database with no proven recovery path.
+- **The single Postgres container is the whole business.** One host, one volume, no replica. Adequate for the load, and worth being deliberate about rather than accidental.
+- **The migrator image is 1.5 GB** because it carries the full toolchain for the ETL. Once the legacy import has happened for good, it could shrink to a production install, or go away.

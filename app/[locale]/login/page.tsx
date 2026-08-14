@@ -6,6 +6,18 @@ import { LoginForm } from '@/components/login-form'
 import { formatPercent, formatQCompact } from '@/lib/format'
 import { publicHeadline } from '@/lib/queries/dashboard'
 
+/**
+ * Every other screen reads the session, and reading a cookie is already
+ * dynamic. This one does not — it is the screen you see *before* a session —
+ * so without this Next prerenders it at build time and `publicHeadline()` runs
+ * against whatever database the build machine had. That means an image build
+ * needs a live database to succeed, and the two figures on the panel are
+ * whatever was true the moment the image was built.
+ *
+ * Found by building the Docker image, where there is no database to reach.
+ */
+export const dynamic = 'force-dynamic'
+
 export default async function LoginPage({ params }: PageProps<'/[locale]'>) {
   const { locale } = await params
   setRequestLocale(locale)
