@@ -2,6 +2,12 @@ import createNextIntlPlugin from 'next-intl/plugin'
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  // Emits `.next/standalone` — a self-contained server plus only the
+  // `node_modules` files the traced routes actually import. It is what the
+  // `runner` stage of the Dockerfile copies, and the reason the deployed image
+  // needs no `pnpm install` and no lockfile.
+  output: 'standalone',
+
   experimental: {
     // Turns on `forbidden()` / `unauthorized()` and their `forbidden.tsx` /
     // `unauthorized.tsx` boundaries, so a denied request answers with a real
