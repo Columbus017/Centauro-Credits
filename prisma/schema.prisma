@@ -239,9 +239,23 @@ model DailyClose {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  /// The old app had no such constraint and accepted duplicate closes, which
-  /// double-counted a collector's day on every dashboard.
-  @@unique([collectorId, closeDate])
+  /// **Deliberately not unique on `(collector_id, close_date)`.**
+  ///
+  /// Phase 2 added that constraint because the legacy app had none and
+  /// double-counted a collector's day on every dashboard. The real dump then
+  /// turned out to contain 11 such days across five years — and only one of
+  /// them is an identical double-submission. Enforcing uniqueness
+  /// retroactively would have meant discarding 11 rows and Q71,725.00 of
+  /// recorded collections, leaving the new system's history permanently at
+  /// odds with the books the business actually kept.
+  ///
+  /// New duplicates are refused by `submitDailyClose` in
+  /// `lib/actions/credits.ts` instead. That is a check rather than a
+  /// guarantee: two closes posted for the same collector and day at the same
+  /// instant could both pass. With five collectors closing once a day, the
+  /// race is theoretical, and losing five years of real history to prevent it
+  /// is not a trade worth making.
+  @@index([collectorId, closeDate])
   @@index([closeDate])
   @@map("daily_closes")
 }
