@@ -1,6 +1,6 @@
 # Centauro Créditos — PHP → Next.js Migration Plan
 
-**Status:** Phases 0–5 merged. Phases 6 (deployment) and 7 (the real data) are code-complete and awaiting review. Two things remain before go-live: **paging on the list screens**, which the real volume makes a blocker, and the deploy to the new host.
+**Status:** Phases 0–5 merged. Phases 6 (deployment), 7 (the real data) and 8 (paging) are code-complete and awaiting review. What remains before go-live is the deploy to the new host and the cutover.
 **Last updated:** 2026-08-16
 
 ---
@@ -51,6 +51,7 @@ All work happens in `centauro_credits/`. **Each phase gets its own branch, cut f
 | 5 | `phase-5-reports` | ✅ merged |
 | 6 | `phase-6-deployment` | ✅ complete, awaiting merge |
 | 7 | `phase-7-legacy-import` | ✅ complete, awaiting merge |
+| 8 | `phase-8-paging` | ✅ complete, awaiting merge |
 
 Protocol: `git checkout main && git pull && git checkout -b phase-N-<name>` → implement → commit in logical chunks (not one giant commit) → report the diff summary and stop for review → on approval, merge and cut the next branch. Phase 4 may warrant sub-branches per vertical slice.
 
@@ -318,6 +319,29 @@ The dump arrived: `db.sql`, a phpMyAdmin export of MySQL 5.7.44 taken 2026-08-15
 
 **Not verified:** the side-by-side diff against the running legacy app on the same data, which is the remaining Phase 4 item. The import was run on arm64 against a local Postgres, not on the deployment host.
 
+
+### ✅ Phase 8 — Paging the list screens (complete, 2 commits)
+
+The blocker Phase 7 uncovered. Measured on a production build against the real book, before and after:
+
+| Screen | Rows | Before | After |
+| --- | --- | --- | --- |
+| `/payments` | 57,131 | 22.9 s · 297 MB | **0.04 s · 326 KB** |
+| `/credits` | 4,737 | 1.48 s · 16.4 MB | **0.06 s · 244 KB** |
+| `/clients` | 511 | 0.53 s · 2.9 MB | **0.10 s · 352 KB** |
+
+`lib/pagination.ts` holds the arithmetic — client-safe, pure, 17 tests. A `?page=` that is not plain digits is page one; a page past the end clamps to the last page with rows on it, so filtering a list down while on page 900 shows results rather than an empty table. That clamp is why the count query runs before the page query.
+
+**The search boxes and filter selects have been inert since Phase 1.** At 511 clients that was untidy; at 57,131 payments it means there is no way to find a payment, so they had to ship with the paging. Filters are the URL — the contract `/reports` has had since Phase 5 — and every search term must match the card number or either half of the name, so "ordoñez martha" finds the same client as "martha ordoñez".
+
+**No second copy of the ledger rule.** The summary tiles were the risk: aggregating them in SQL would have put `outstanding` in a second place, which is exactly the drift `syncCredit()` exists to prevent. It turned out not to be needed. Every credits and clients tile concerns the *live* portfolio — 351 active credits against 4,737 — a set bounded by open business rather than by how long the business has run, so `lib/ledger.ts` still walks them and remains the only implementation. Only the payments tiles became SQL aggregates, and those are sums and counts of a column, not a derivation. The credits and clients tiles are deliberately **not** filtered by the table: searching for a client should not redefine the size of the book.
+
+**Three full-book loads found on the way**, none of them visible before real data: the payments screen's collector dropdown called `listCollectors()`, which walks every credit and every ledger entry to render five options; the same dropdown and the clients screen's route filter offered *active* rows only, hiding a retired collector's five years of payments and a retired route's clients from filters over history; and `/routes/[id]` loaded all 511 clients and all 4,737 credits to show the handful on one round.
+
+**Verified** against the real data with every figure reconciled to SQL: 4,737 credits split 351 active / 2,974 bad record / 1,412 cancelled — the whole book exactly; 57,131 payments over 1,143 pages, page 900 showing rows 44,951–45,000 and page 99999 clamping to the last; "ordoñez" returning the 68 payments SQL says it should and an unmatched term ANDing to none; 511 clients, 10 inactive, 160 on route 1. Capital Q1,113,375, outstanding Q736,766 and average payment Q200.26 all unchanged from the unpaged versions. Driven in the browser as well: paging, the debounced search resetting the page and surviving an accented character through the URL, and the collector select preserving the search beside it.
+
+**Not paged, on purpose:** the report listings. They are bounded by one collector or one date range and are meant to be printed whole — paging a report would defeat it.
+
 ---
 
 ## 4. Design → domain mapping (binding)
@@ -372,8 +396,8 @@ The dump arrived: `db.sql`, a phpMyAdmin export of MySQL 5.7.44 taken 2026-08-15
 ## 7. Open risks and questions
 
 - ~~**No schema dump yet.**~~ — the dump landed and the ETL has run against it (Phase 7). What it leaves open is the side-by-side parity diff against the running legacy app on the same data.
-- **The list screens do not page, and the real volume makes that a go-live blocker.** Measured on a production build: `/payments` is 297 MB of HTML in 22.9 s over 57,131 rows, `/credits` 16.4 MB over 4,737. The derivation is correct and keeps list and detail in agreement — the fix is a `DISTINCT ON` projection plus a page size, not abandoning it.
-- **Search and filter controls on the list screens are still inert**, which the volume above turns from an annoyance into part of the same blocker: with 57,131 payments and no search, there is no way to find one. `/reports` has working filters but its listing also renders every row.
+- ~~**The list screens do not page.**~~ — done in Phase 8, without a `DISTINCT ON` projection in the end: the tiles only ever needed the live portfolio, so the derivation stayed in one place.
+- ~~**Search and filter controls on the list screens are still inert.**~~ — wired in Phase 8 on `/clients`, `/credits` and `/payments`. The header's global search box is still decorative, and `/collectors`, `/routes` and the admin screens are small enough not to page but have no search either.
 - **The report PDFs use only the standard PDF fonts.** Now answerable: the real book holds 13 non-ASCII values and every one is `Ñ`, `ñ` or an accented vowel — all inside WinAnsi, so Helvetica covers the migrated names. A future client whose name leaves that range would still render blank.
 - ~~**Hard-delete → soft-delete** for credits~~ — done; `deleteCredit` soft-deletes the credit and its ledger. Nothing in the app un-deletes one yet, so a mistaken delete needs SQL.
 - ~~Old money columns are floats; some historical balances will not reconcile to the penny.~~ — the columns are `decimal(9,2)` and exact. Ten stored balances still disagree with their own entries (nine of them one cascade on credit 4257, ending at a stored −50.00); the import takes the recomputed value and reports every difference.
