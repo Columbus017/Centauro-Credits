@@ -35,6 +35,7 @@ import {
 } from '@/lib/ledger'
 import { createPrismaClient } from '@/lib/prisma-client'
 import type { PrismaClient } from '@/lib/generated/prisma/client'
+import { flag, money, type LegacyFlag, type LegacyMoney } from './legacy-values'
 
 // ------------------------------------------------------------------- legacy
 
@@ -50,7 +51,7 @@ type OldCollector = {
   mobile: string | null
   DPI: string | null
   birthDate: string | null
-  state: number | null
+  state: LegacyFlag
 }
 type OldRoute = {
   idRoute: number
@@ -58,7 +59,7 @@ type OldRoute = {
   routeName: string | null
   details: string | null
   _idCollector: number | null
-  state: number | null
+  state: LegacyFlag
 }
 type OldCustomer = {
   idCustomer: number
@@ -70,7 +71,7 @@ type OldCustomer = {
   address: string | null
   mobile: string | null
   mobile2: string | null
-  state: number | null
+  state: LegacyFlag
 }
 type OldCredit = {
   idCredit: number
@@ -78,27 +79,27 @@ type OldCredit = {
   _idCollector: number | null
   code: string | null
   dateStart: string | null
-  total: number | null
-  cancel: number | null
-  record: number | null
+  total: LegacyMoney
+  cancel: LegacyFlag
+  record: LegacyFlag
 }
 type OldBalance = {
   idBalance: number
   _idCredit: number | null
   date: string | null
-  balpay: number | null
-  amount: number | null
-  balance: number | null
-  state: number | null
+  balpay: LegacyFlag
+  amount: LegacyMoney
+  balance: LegacyMoney
+  state: LegacyFlag
 }
 type OldIncome = {
   idIncome: number
   _idCollector: number | null
   date: string | null
-  incomes: number | null
-  base: number | null
-  exes: number | null
-  credits: number | null
+  incomes: LegacyMoney
+  base: LegacyMoney
+  exes: LegacyMoney
+  credits: LegacyMoney
 }
 type OldUser = {
   idUser: number
@@ -108,7 +109,7 @@ type OldUser = {
   userName: string | null
   passWord: string | null
   permissions: number | null
-  state: number | null
+  state: LegacyFlag
 }
 
 type Legacy = {
@@ -147,7 +148,8 @@ function block(summary: string) {
 }
 
 /** `state = 1` is the legacy soft-delete flag; anything else is live. */
-const isActive = (state: number | null) => state !== 1
+/** The legacy `state` flag is *inverted*: 1 means retired, 0 means live. */
+const isActive = (state: LegacyFlag) => !flag(state)
 
 /** The legacy app writes `0` where it means "no relation". */
 function optionalId(value: number | null | undefined) {
@@ -164,11 +166,6 @@ function requireDate(value: string | null | undefined, context: string) {
   const parsed = optionalDate(value)
   if (!parsed) throw new Error(`${context}: missing a date that cannot be defaulted`)
   return parsed
-}
-
-/** Floats in, fixed-point strings out — what a `Decimal` column wants. */
-function money(value: number | null | undefined) {
-  return ((value ?? 0)).toFixed(2)
 }
 
 const blankToNull = (value: string | null | undefined) =>
@@ -362,7 +359,7 @@ function auditLedger(legacy: Legacy) {
 
     const expectedOrigination = payoffTotalCents(credit.total ?? 0, DEFAULT_INTEREST_RATE)
     const origination = rows[0]
-    if (origination.balpay === 0 && toCents(origination.amount ?? 0) !== expectedOrigination) {
+    if (!flag(origination.balpay) && toCents(origination.amount ?? 0) !== expectedOrigination) {
       originationMismatches += 1
       report(
         `credit ${credit.idCredit}: origination is ${money(origination.amount)} but ` +
@@ -372,9 +369,9 @@ function auditLedger(legacy: Legacy) {
 
     const ledger = rows.map((row) => ({
       id: row.idBalance,
-      kind: (row.balpay === 1 ? 'payment' : 'origination') as 'payment' | 'origination',
+      kind: (flag(row.balpay) ? 'payment' : 'origination') as 'payment' | 'origination',
       amountCents: toCents(row.amount ?? 0),
-      voided: row.state === 1,
+      voided: flag(row.state),
       entryDate: (row.date ?? '').slice(0, 10),
     }))
 
@@ -400,17 +397,17 @@ function auditLedger(legacy: Legacy) {
     const startDate = (credit.dateStart ?? '').slice(0, 10)
     if (startDate) {
       const state = payoffState(startDate, ledger)
-      if (state.paidOff !== (credit.cancel === 1)) {
+      if (state.paidOff !== flag(credit.cancel)) {
         flagMismatches += 1
         report(
-          `credit ${credit.idCredit}: cancel = ${credit.cancel} but the ledger says ` +
+          `credit ${credit.idCredit}: cancel = ${flag(credit.cancel)} but the ledger says ` +
             `${state.paidOff ? 'paid off' : 'still owing'}`,
         )
       }
-      if (state.paidOff && state.badRecord !== (credit.record === 1)) {
+      if (state.paidOff && state.badRecord !== flag(credit.record)) {
         flagMismatches += 1
         report(
-          `credit ${credit.idCredit}: record = ${credit.record} but payoff took ` +
+          `credit ${credit.idCredit}: record = ${flag(credit.record)} but payoff took ` +
             `${state.badRecord ? 'more' : 'fewer'} than 30 days`,
         )
       }
@@ -501,7 +498,7 @@ async function write(
   // only the flag, so take the date of its last live ledger row.
   const lastLiveEntryDate = new Map<number, string>()
   for (const entry of legacy.balance) {
-    if (entry.state === 1) continue
+    if (flag(entry.state)) continue
     const creditId = entry._idCredit ?? -1
     const date = (entry.date ?? '').slice(0, 10)
     if (date) lastLiveEntryDate.set(creditId, date)
@@ -518,8 +515,8 @@ async function write(
           startDate: requireDate(row.dateStart, `credit ${row.idCredit}`),
           principal: money(row.total),
           interestRate: DEFAULT_INTEREST_RATE.toFixed(4),
-          cancelledAt: row.cancel === 1 && cancelledOn ? isoDate(cancelledOn) : null,
-          badRecord: row.record === 1,
+          cancelledAt: flag(row.cancel) && cancelledOn ? isoDate(cancelledOn) : null,
+          badRecord: flag(row.record),
       }
     }),
     (data) => prisma.credit.createMany({ data }),
@@ -529,7 +526,7 @@ async function write(
     migratable.balance.map((row) => ({
         id: row.idBalance,
         creditId: row._idCredit!,
-        kind: (row.balpay === 1 ? 'payment' : 'origination') as 'payment' | 'origination',
+        kind: (flag(row.balpay) ? 'payment' : 'origination') as 'payment' | 'origination',
         entryDate: requireDate(row.date, `balance ${row.idBalance}`),
         amount: money(row.amount),
         // The recomputed value, not the stored one: a running balance that
@@ -538,7 +535,7 @@ async function write(
         runningBalance: ((recomputed.get(row.idBalance) ?? 0) / 100).toFixed(2),
         // The legacy schema recorded no void timestamp, so migrated voids all
         // carry the moment of the migration itself.
-        voidedAt: row.state === 1 ? voidedAt : null,
+        voidedAt: flag(row.state) ? voidedAt : null,
       })),
     (data) => prisma.ledgerEntry.createMany({ data }),
   )
