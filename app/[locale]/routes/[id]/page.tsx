@@ -37,8 +37,9 @@ export default async function RouteDetailPage({
   const tc = await getTranslations('common')
   const tClients = await getTranslations('clients')
 
-  const allClients = await listCustomersWithPortfolio()
-  const clients = allClients.filter((client) => client.routeId === route.id)
+  // Filtered in the query, not after: this used to load all 511 clients and
+  // all 4,737 credits to show the handful on one round.
+  const clients = await listCustomersWithPortfolio({ routeId: route.id })
 
   return (
     <AppShell title={route.name}>

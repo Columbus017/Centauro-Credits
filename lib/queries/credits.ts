@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { fromDbAmount, fromDbDate, fromDbDateOrNull, isoDate } from '@/lib/db-utils'
 import {
   fromCents,
+  GOOD_RECORD_DAYS,
   outstandingCents,
   payoffTotalCents,
   toCents,
@@ -11,6 +12,7 @@ import {
 } from '@/lib/ledger'
 import { daysBetween } from '@/lib/format'
 import { today } from '@/lib/clock'
+import { paged, pageParams, searchTerms, type Paged } from '@/lib/pagination'
 import type { Status } from '@/components/status-badge'
 
 /**
@@ -163,6 +165,109 @@ export async function listCredits(
   })
 
   return credits.map(projectCredit)
+}
+
+/**
+ * Every credit belonging to a given set of clients.
+ *
+ * The paged client list needs each row's book, and asking for all 4,737
+ * credits to attach a balance to fifty clients is the cost the paging is
+ * there to avoid.
+ */
+export async function listCreditsForCustomers(customerIds: number[]) {
+  if (customerIds.length === 0) return []
+
+  const credits = await db.credit.findMany({
+    where: { deletedAt: null, customerId: { in: customerIds } },
+    include: creditInclude,
+    orderBy: { code: 'asc' },
+  })
+
+  return credits.map(projectCredit)
+}
+
+export type CreditListFilter = {
+  status?: 'active' | 'cancelled' | 'badRecord'
+  /** Free text over the card number and the client's name. */
+  search?: string
+}
+
+/** The `where` behind both the page and its count. */
+function creditListWhere(scope: Scope, filter: CreditListFilter) {
+  const terms = searchTerms(filter.search)
+
+  return {
+    deletedAt: null,
+    ...scopeWhere(scope),
+    ...(filter.status === 'active' ? { cancelledAt: null } : {}),
+    ...(filter.status === 'cancelled' ? { cancelledAt: { not: null }, badRecord: false } : {}),
+    ...(filter.status === 'badRecord' ? { badRecord: true } : {}),
+    ...(terms.length
+      ? {
+          AND: terms.map((term) => ({
+            OR: [
+              { code: { contains: term, mode: 'insensitive' as const } },
+              { customer: { firstName: { contains: term, mode: 'insensitive' as const } } },
+              { customer: { lastName: { contains: term, mode: 'insensitive' as const } } },
+            ],
+          })),
+        }
+      : {}),
+  }
+}
+
+/**
+ * One page of credits.
+ *
+ * The ledger walk stays exactly as it is — `projectCredit` still derives every
+ * figure from the entries rather than reading `running_balance`. What changed
+ * is how many credits are walked at once: fifty, not the 4,737 in the real book
+ * whose entries between them are 61,868 rows and 16 MB of HTML.
+ */
+export async function listCreditsPage(
+  scope: Scope,
+  filter: CreditListFilter,
+  page: number,
+): Promise<Paged<CreditRow>> {
+  const where = creditListWhere(scope, filter)
+
+  const total = await db.credit.count({ where })
+  const params = pageParams(page, total)
+
+  const credits = await db.credit.findMany({
+    where,
+    include: creditInclude,
+    orderBy: { code: 'asc' },
+    skip: params.skip,
+    take: params.take,
+  })
+
+  return paged(credits.map(projectCredit), total, params)
+}
+
+/**
+ * The four figures above the credits table.
+ *
+ * Deliberately **not** filtered by what the table is showing: every one of them
+ * describes the live portfolio — capital out, still owed, how many, how many
+ * overdue — and `index.php` put the first two at the top of the legacy
+ * dashboard as exactly that. Searching for a client should not redefine the
+ * size of the book.
+ *
+ * It is also why this needs no SQL rewrite of the ledger rule. The tiles only
+ * ever concern *active* credits — 351 of 4,737 in the real data — so the
+ * derivation in `lib/ledger.ts` stays the one implementation, walked over a set
+ * bounded by how much business is open rather than by how long it has run.
+ */
+export async function creditPortfolio(scope: Scope, asOf = today()) {
+  const active = await listCredits(scope, { status: 'active' })
+
+  return {
+    active: active.length,
+    capital: fromCents(active.reduce((sum, row) => sum + toCents(row.principal), 0)),
+    outstanding: fromCents(active.reduce((sum, row) => sum + toCents(row.outstanding), 0)),
+    atRisk: active.filter((row) => daysSincePayment(row, asOf) > GOOD_RECORD_DAYS).length,
+  }
 }
 
 export async function getCredit(id: number, scope: Scope) {

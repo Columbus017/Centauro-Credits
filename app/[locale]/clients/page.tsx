@@ -3,8 +3,8 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { AppShell } from '@/components/app-shell'
 import { PageHeader } from '@/components/page-header'
-import { SearchInput } from '@/components/search-input'
-import { SelectField } from '@/components/select-field'
+import { ListFilters } from '@/components/list-filters'
+import { Pagination } from '@/components/pagination'
 import { StatusBadge } from '@/components/status-badge'
 import { SummaryStat } from '@/components/summary-stat'
 import { LinkButton } from '@/components/link-button'
@@ -19,10 +19,15 @@ import {
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
 import { formatQ, formatNumber } from '@/lib/format'
-import { listCustomersWithPortfolio, listRoutes } from '@/lib/queries/entities'
+import { firstParam, parsePage } from '@/lib/pagination'
+import {
+  customerSummary,
+  listCustomersPage,
+  routeOptions,
+} from '@/lib/queries/entities'
 import { requireAdmin } from '@/lib/session'
 
-export default async function ClientsPage({ params }: PageProps<'/[locale]'>) {
+export default async function ClientsPage({ params, searchParams }: PageProps<'/[locale]'>) {
   const { locale } = await params
   setRequestLocale(locale)
   await requireAdmin()
@@ -31,11 +36,23 @@ export default async function ClientsPage({ params }: PageProps<'/[locale]'>) {
   const tc = await getTranslations('common')
   const tStatus = await getTranslations('status')
 
-  const [rows, routes] = await Promise.all([listCustomersWithPortfolio(), listRoutes()])
+  const query = await searchParams
+  const routeParam = firstParam(query.route)
+  const statusParam = firstParam(query.status)
+  const filter = {
+    search: firstParam(query.q),
+    routeId: routeParam ? Number(routeParam) : undefined,
+    active: statusParam === 'active' ? true : statusParam === 'inactive' ? false : undefined,
+  }
 
-  const totalBalance = rows.reduce((sum, row) => sum + row.balance, 0)
-  const activeCount = rows.filter((row) => row.active).length
-  const atRiskCount = rows.filter((row) => row.atRisk).length
+  const [result, summary, routes] = await Promise.all([
+    listCustomersPage(filter, parsePage(query.page)),
+    // The tiles describe the whole book, not the filtered table.
+    customerSummary(),
+    // A filter over existing clients, so retired routes belong in it.
+    routeOptions({ includeInactive: true }),
+  ])
+  const rows = result.rows
 
   return (
     <AppShell title={t('title')}>
@@ -51,42 +68,38 @@ export default async function ClientsPage({ params }: PageProps<'/[locale]'>) {
       />
 
       <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <SummaryStat label={t('summary.total')} value={formatNumber(rows.length, locale)} />
-        <SummaryStat label={t('summary.active')} value={formatNumber(activeCount, locale)} />
+        <SummaryStat label={t('summary.total')} value={formatNumber(summary.total, locale)} />
+        <SummaryStat label={t('summary.active')} value={formatNumber(summary.active, locale)} />
         <SummaryStat
           label={t('summary.atRisk')}
-          value={formatNumber(atRiskCount, locale)}
-          tone={atRiskCount > 0 ? 'danger' : 'default'}
+          value={formatNumber(summary.atRisk, locale)}
+          tone={summary.atRisk > 0 ? 'danger' : 'default'}
         />
-        <SummaryStat label={t('summary.outstanding')} value={formatQ(totalBalance, locale)} />
+        <SummaryStat label={t('summary.outstanding')} value={formatQ(summary.outstanding, locale)} />
       </div>
 
       <Card className="py-0">
-        <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center">
-          <SearchInput placeholder={t('searchPlaceholder')} />
-          <div className="flex items-center gap-2">
-            <SelectField
-              size="default"
-              className="h-9 min-w-40"
-              options={[
-                { value: 'all', label: t('allRoutes') },
-                ...routes.map((route) => ({
-                  value: String(route.id),
-                  label: route.name,
-                })),
-              ]}
-            />
-            <SelectField
-              size="default"
-              className="h-9 min-w-36"
-              options={[
+        <ListFilters
+          searchPlaceholder={t('searchPlaceholder')}
+          selects={[
+            {
+              name: 'route',
+              allValue: 'all',
+              className: 'h-9 min-w-40',
+              options: [{ value: 'all', label: t('allRoutes') }, ...routes],
+            },
+            {
+              name: 'status',
+              allValue: 'all',
+              className: 'h-9 min-w-36',
+              options: [
                 { value: 'all', label: t('allStatuses') },
                 { value: 'active', label: tStatus('active') },
                 { value: 'inactive', label: tStatus('inactive') },
-              ]}
-            />
-          </div>
-        </div>
+              ],
+            },
+          ]}
+        />
 
         <CardContent className="px-0">
           <div className="overflow-x-auto">
@@ -146,6 +159,8 @@ export default async function ClientsPage({ params }: PageProps<'/[locale]'>) {
               </TableBody>
             </Table>
           </div>
+
+          <Pagination result={result} searchParams={query} locale={locale} />
         </CardContent>
       </Card>
     </AppShell>

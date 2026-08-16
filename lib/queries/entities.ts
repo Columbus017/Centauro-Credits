@@ -4,7 +4,12 @@ import { db } from '@/lib/db'
 import { fromDbDate, fromDbDateOrNull } from '@/lib/db-utils'
 import { fromCents, toCents, GOOD_RECORD_DAYS } from '@/lib/ledger'
 import { today } from '@/lib/clock'
-import { daysSincePayment, listCredits } from '@/lib/queries/credits'
+import { paged, pageParams, searchTerms, type Paged } from '@/lib/pagination'
+import {
+  daysSincePayment,
+  listCredits,
+  listCreditsForCustomers,
+} from '@/lib/queries/credits'
 
 function fullName(person: { firstName: string; lastName: string }) {
   return `${person.firstName} ${person.lastName}`
@@ -191,10 +196,10 @@ export async function getRoute(id: number) {
   return routes.find((route) => route.id === id) ?? null
 }
 
-export async function routeOptions() {
+export async function routeOptions({ includeInactive = false } = {}) {
   const rows = await db.route.findMany({
-    where: { active: true },
-    orderBy: { code: 'asc' },
+    where: includeInactive ? {} : { active: true },
+    orderBy: [{ active: 'desc' }, { code: 'asc' }],
     select: { id: true, code: true, name: true },
   })
 
@@ -264,8 +269,11 @@ function projectCustomer(row: CustomerWithRelations): CustomerRow {
   }
 }
 
-export async function listCustomers(): Promise<CustomerRow[]> {
+export async function listCustomers(
+  filter: CustomerListFilter = {},
+): Promise<CustomerRow[]> {
   const rows = await db.customer.findMany({
+    where: customerListWhere(filter),
     orderBy: [{ active: 'desc' }, { firstName: 'asc' }],
     include: customerInclude,
   })
@@ -293,12 +301,11 @@ export type CustomerPortfolioRow = CustomerRow & {
  * down as the book grew.
  */
 export async function listCustomersWithPortfolio(
+  filter: CustomerListFilter = {},
   asOf = today(),
 ): Promise<CustomerPortfolioRow[]> {
-  const [customers, credits] = await Promise.all([
-    listCustomers(),
-    listCredits({ collectorId: null }),
-  ])
+  const customers = await listCustomers(filter)
+  const credits = await listCreditsForCustomers(customers.map((customer) => customer.id))
 
   const byCustomer = new Map<number, typeof credits>()
   for (const credit of credits) {
@@ -318,6 +325,113 @@ export async function listCustomersWithPortfolio(
       atRisk: live.some((credit) => daysSincePayment(credit, asOf) > GOOD_RECORD_DAYS),
     }
   })
+}
+
+export type CustomerListFilter = {
+  /** Free text over the client's name and DPI — what the box promises. */
+  search?: string
+  routeId?: number
+  active?: boolean
+}
+
+function customerListWhere(filter: CustomerListFilter) {
+  const terms = searchTerms(filter.search)
+
+  return {
+    ...(filter.routeId ? { routeId: filter.routeId } : {}),
+    ...(filter.active === undefined ? {} : { active: filter.active }),
+    ...(terms.length
+      ? {
+          AND: terms.map((term) => ({
+            OR: [
+              { firstName: { contains: term, mode: 'insensitive' as const } },
+              { lastName: { contains: term, mode: 'insensitive' as const } },
+              { dpi: { contains: term, mode: 'insensitive' as const } },
+            ],
+          })),
+        }
+      : {}),
+  }
+}
+
+/**
+ * One page of clients, each with their book attached.
+ *
+ * The unpaged version loads every client *and* every credit — 4,737 of them
+ * carrying 61,868 ledger rows — to render 511 table rows. Here the credits are
+ * fetched for the fifty clients on the page and nothing else.
+ */
+export async function listCustomersPage(
+  filter: CustomerListFilter,
+  page: number,
+  asOf = today(),
+): Promise<Paged<CustomerPortfolioRow>> {
+  const where = customerListWhere(filter)
+
+  const total = await db.customer.count({ where })
+  const params = pageParams(page, total)
+
+  const rows = await db.customer.findMany({
+    where,
+    orderBy: [{ active: 'desc' }, { firstName: 'asc' }],
+    include: customerInclude,
+    skip: params.skip,
+    take: params.take,
+  })
+
+  const customers = rows.map(projectCustomer)
+  const credits = await listCreditsForCustomers(customers.map((customer) => customer.id))
+
+  const byCustomer = new Map<number, typeof credits>()
+  for (const credit of credits) {
+    const list = byCustomer.get(credit.customerId)
+    if (list) list.push(credit)
+    else byCustomer.set(credit.customerId, [credit])
+  }
+
+  const withPortfolio = customers.map((customer) => {
+    const own = byCustomer.get(customer.id) ?? []
+    const live = own.filter((credit) => credit.cancelledAt === null)
+
+    return {
+      ...customer,
+      balance: fromCents(own.reduce((sum, credit) => sum + toCents(credit.outstanding), 0)),
+      activeCredits: live.length,
+      atRisk: live.some((credit) => daysSincePayment(credit, asOf) > GOOD_RECORD_DAYS),
+    }
+  })
+
+  return paged(withPortfolio, total, params)
+}
+
+/**
+ * The four figures above the clients table.
+ *
+ * Like the credits tiles, these describe the whole book rather than the
+ * filtered page, and like them they need only the *active* credits: a paid-off
+ * credit's outstanding is zero and cannot be overdue, so summing the live ones
+ * gives the same totals over a set bounded by open business.
+ */
+export async function customerSummary(asOf = today()) {
+  const [total, active, liveCredits] = await Promise.all([
+    db.customer.count(),
+    db.customer.count({ where: { active: true } }),
+    listCredits({ collectorId: null }, { status: 'active' }),
+  ])
+
+  const overdue = liveCredits.filter(
+    (credit) => daysSincePayment(credit, asOf) > GOOD_RECORD_DAYS,
+  )
+
+  return {
+    total,
+    active,
+    // Clients with at least one overdue live credit — not overdue credits.
+    atRisk: new Set(overdue.map((credit) => credit.customerId)).size,
+    outstanding: fromCents(
+      liveCredits.reduce((sum, credit) => sum + toCents(credit.outstanding), 0),
+    ),
+  }
 }
 
 /** Active clients only, for the credit forms. */
