@@ -48,7 +48,7 @@ PostgreSQL 16 through Prisma 7. Three things about Prisma 7 differ from older ve
 
 Use `db` from `@/lib/db` in application code — it is `server-only` and keeps one pooled client across hot reloads. Plain Node scripts (the seed, the ETL) must call `createPrismaClient()` from `@/lib/prisma-client` instead, since `server-only` throws outside the Next bundler.
 
-**All ledger arithmetic goes through `lib/ledger.ts`.** Money is handled there in integer centavos — the legacy columns were floats and the drift is visible in the data. Nothing else should re-derive a running balance, a payoff total, or the bad-record flag; the legacy app copy-pasted that math into four PHP files and they drifted apart.
+**All ledger arithmetic goes through `lib/ledger.ts`.** Money is handled there in integer centavos. The legacy *columns* were `decimal(9,2)` and exact — it was the arithmetic over them that used floats (`balance == 0` in PHP, totals summed in the browser), and the real dump does contain balances that disagree with their own entries. Nothing else should re-derive a running balance, a payoff total, or the bad-record flag; the legacy app copy-pasted that math into four PHP files and they drifted apart.
 
 Schema conventions: tables and columns are `snake_case` via `@@map`/`@map`, money is `Decimal(12,2)`, dates that carry no time are `@db.Date` (build them with `isoDate()` from `@/lib/db-utils`, never `new Date(iso)`), and audit columns are `timestamptz`. The old `state`/`cancel`/`balpay` integer flags are gone — a row records *when* something happened (`voided_at`, `cancelled_at`, `deleted_at`).
 

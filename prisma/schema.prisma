@@ -5,14 +5,23 @@
 // original so `scripts/migrate-from-mysql.ts` can preserve every primary key
 // (card numbers and printed receipts reference them), with four corrections:
 //
-//   1. Money is `Decimal(12,2)`. The old columns were floats — a live rounding
-//      bug on a ledger that must reconcile to the centavo.
+//   1. Money is `Decimal(12,2)`. The old columns turned out to be
+//      `decimal(9,2)` — exact storage, so the drift is not in the columns. It
+//      is in the PHP and JS that read them: `balance == 0` compared as a
+//      float, and browser totals summed as doubles. Keeping the values exact
+//      end to end is what `lib/ledger.ts` and its centavos are for.
 //   2. Foreign keys are real. The old schema had none; `_idCustomer` and
 //      friends were conventions enforced only by the PHP.
 //   3. The `state` / `cancel` / `balpay` integer flags become booleans, enums
 //      or nullable timestamps, so a row records *when* something happened.
-//   4. `daily_closes` is unique per collector per day. The old `income` table
-//      silently accepted duplicate closes.
+//   4. Nothing is stored that its own entries do not support: a ledger row's
+//      running balance and a credit's `cancelled_at` / `bad_record` are all
+//      derived on import and on every write, because the legacy versions were
+//      maintained by hand in four files that disagreed.
+//
+// A fifth correction was attempted and withdrawn: `daily_closes` was unique per
+// collector per day until the real dump produced 11 legitimate historical
+// duplicates. See the note on that model.
 
 generator client {
   provider = "prisma-client"
