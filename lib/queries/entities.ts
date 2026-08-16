@@ -109,11 +109,21 @@ export async function getCollector(id: number) {
   return collectors.find((collector) => collector.id === id) ?? null
 }
 
-/** Active collectors only — the choices a form may offer. */
-export async function collectorOptions() {
+/**
+ * Collectors as select options — id and name, nothing else.
+ *
+ * `listCollectors()` is the wrong thing to fill a dropdown with: it walks
+ * every credit and every ledger entry to build each collector's book, which is
+ * 61,868 rows to render five `<option>`s.
+ *
+ * Active only by default, which is what a *form* may offer. A **filter** over
+ * history has to include retired collectors — one of the five is inactive and
+ * carries five years of payments that would otherwise be unreachable.
+ */
+export async function collectorOptions({ includeInactive = false } = {}) {
   const rows = await db.collector.findMany({
-    where: { active: true },
-    orderBy: { firstName: 'asc' },
+    where: includeInactive ? {} : { active: true },
+    orderBy: [{ active: 'desc' }, { firstName: 'asc' }],
     select: { id: true, firstName: true, lastName: true },
   })
 
