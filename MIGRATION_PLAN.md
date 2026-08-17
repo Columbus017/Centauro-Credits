@@ -1,6 +1,8 @@
 # Centauro Créditos — PHP → Next.js Migration Plan
 
-**Status:** Phases 0–5 merged. Phases 6 (deployment), 7 (the real data) and 8 (paging) are code-complete and awaiting review. What remains before go-live is the deploy to the new host and the cutover.
+**Status:** **Phases 0–8 are merged.** The application is feature-complete, containerised, and has been run against the real book — 4,737 credits and 61,868 ledger entries imported, reconciled and paged.
+
+**What is left is Phase 9: go-live.** Nothing has been deployed to a server, and the ETL has only been rehearsed locally. The remaining work is one deploy to a new host, one dress rehearsal on it, and one cutover window. See [Phase 9](#-phase-9--go-live-next) for the sequence and [§8](#8-next-steps-at-a-glance) for the short version.
 **Last updated:** 2026-08-16
 
 ---
@@ -49,9 +51,10 @@ All work happens in `centauro_credits/`. **Each phase gets its own branch, cut f
 | 3 | `phase-3-auth` | ✅ merged |
 | 4 | `phase-4-data-wiring` | ✅ merged |
 | 5 | `phase-5-reports` | ✅ merged |
-| 6 | `phase-6-deployment` | ✅ complete, awaiting merge |
-| 7 | `phase-7-legacy-import` | ✅ complete, awaiting merge |
-| 8 | `phase-8-paging` | ✅ complete, awaiting merge |
+| 6 | `phase-6-deployment` | ✅ merged (PR #5) |
+| 7 | `phase-7-legacy-import` | ✅ merged (PR #6) |
+| 8 | — | ✅ merged (PR #6) — **paging shipped on the phase-7 branch**, not one of its own: it was the blocker that phase's data uncovered, and splitting it would have meant merging a book nobody could open |
+| 9 | `phase-9-go-live` | ⬜ next |
 
 Protocol: `git checkout main && git pull && git checkout -b phase-N-<name>` → implement → commit in logical chunks (not one giant commit) → report the diff summary and stop for review → on approval, merge and cut the next branch. Phase 4 may warrant sub-branches per vertical slice.
 
@@ -73,7 +76,7 @@ Design system ported verbatim: `globals.css` (oklch light/dark tokens), 15 `comp
 - **`components/dashboard/*` deferred to Phase 1**, since they depend on the mock-data shape Phase 1 defines.
 - `pnpm-workspace.yaml` needs `allowBuilds` for `@parcel/watcher` / `@swc/core` (transitive via next-intl) or `pnpm install` exits non-zero.
 
-### ✅ Phase 1 — Full design port, all screens (complete, 3 commits, 42 files, +6,153 lines)
+### ✅ Phase 1 — Full design port, all screens (merged, 3 commits, 42 files, +6,153 lines)
 
 **23 screens.** Ported from the reference app: dashboard, login, and list/new/detail for clients, credits, collectors, routes. Built from `.dc.html`: payments, receipt, reports, admin users, admin settings. Net-new with no design: `/daily-close` (legacy `newIncome.php`), `/credits/import` (`newHistory.php`), `/field/collect` + `/field/today` (collector role).
 
@@ -94,7 +97,7 @@ Extracted for reuse: `SummaryStat`, `FormField`, `SearchInput`, `SelectField`, `
 
 **Not verified:** the mobile drawer at <1024px — the browser tooling could not drive a narrow viewport. Breakpoints are intact from the reference design and tables scroll, but this deserves a manual check on a phone.
 
-### ✅ Phase 2 — PostgreSQL schema + data migration (complete, 6 commits)
+### ✅ Phase 2 — PostgreSQL schema + data migration (merged, 6 commits)
 
 Postgres 16 + Prisma 7. The schema, the migration, the seed and the ETL all exist and run; `scripts/legacy-fixture.sql` reconstructs the legacy DDL from the old app's prepared statements so the ETL could be exercised end to end before the real dump arrives.
 
@@ -120,13 +123,13 @@ New Prisma schema — snake_case, real FKs, `Decimal(12,2)` for all money, boole
 Two modelling notes that matter:
 
 - **`balance` → `ledger_entries`.** The old table conflates two record types: row 1 per credit is the *origination* (`balpay=0`, `amount = balance = total * 1.15`), later rows are *payments* (`balpay=1`) carrying a denormalized running balance. Model as `kind: 'origination' | 'payment'`, keep `running_balance` materialized (the UI reads it constantly), and enforce recomputation in one place — a single `recalculateBalances(creditId)`. `state=1` becomes `voided_at`; voiding must re-derive every later `running_balance`, exactly as `BLL/balance.php` does.
-- **`income` → `daily_closes`,** with `UNIQUE (collector_id, close_date)`. The old app has no such constraint and silently permits duplicate closes.
+- **`income` → `daily_closes`.** ~~With `UNIQUE (collector_id, close_date)`~~ — that constraint was added here and **withdrawn in Phase 7**, when the real book turned out to hold 11 legitimate duplicate days. New duplicates are refused by `submitDailyClose` instead.
 
 The flat 15% lives as `credits.interest_rate Decimal(5,4) DEFAULT 0.15` — per credit rather than hardcoded in four PHP files, so historical credits stay correct if the rate changes. `credit.record` → `bad_record`.
 
-**ETL** — one-shot `scripts/migrate-from-mysql.ts` reading MySQL via `mysql2`, writing through Prisma: preserve original IDs (so card numbers reconcile), map flags, recompute every `running_balance` from scratch and **assert it matches the stored one**. Mismatches are pre-existing corruption — report, never silently overwrite. Run against a dump copy, never the live DB.
+**ETL** — one-shot `scripts/migrate-from-mysql.ts` reading MySQL via `mysql2`, writing through Prisma: preserve original IDs (so card numbers reconcile), map flags, and recompute every `running_balance` from scratch. The recomputed value is what lands; every disagreement with the stored one is reported and never silently accepted. Run against a dump copy, never the live DB.
 
-Three conditions abort the run rather than guess, each with an opt-out flag: orphaned foreign keys (`--allow-orphans`), duplicate daily closes (`--merge-duplicate-closes`, keeps the highest id), and duplicate usernames (no flag — a login must be unambiguous). `--dry-run` reports all of them at once and writes nothing.
+**Two** conditions abort the run rather than guess: orphaned foreign keys (`--allow-orphans` to skip them) and duplicate usernames (no flag — a login must be unambiguous). Duplicate daily closes were a third until Phase 7; they are now reported and imported, with `--merge-duplicate-closes` still available to collapse them. `--dry-run` reports everything at once and writes nothing.
 
 **Beyond the original plan, all deliberate:**
 
@@ -142,7 +145,7 @@ Three conditions abort the run rather than guess, each with an opt-out flag: orp
 
 **Not verified:** anything that depends on the real dump — actual column widths, charset/encoding of accented names, and the true volume (the transaction budget is set to 30 minutes and inserts are batched at 1,000 rows, but neither has met a real table).
 
-### ✅ Phase 3 — Auth and roles (complete, 3 commits)
+### ✅ Phase 3 — Auth and roles (merged, 3 commits)
 
 Auth.js v5 Credentials provider over `users`, JWT session carrying `role` and `collectorId`. `bcryptjs` verifies the migrated `$2y$` hashes unchanged — **no password resets**, confirmed against the seeded data. Inactive accounts are refused. An unknown username, a wrong password and a deactivated account are one indistinguishable failure that all cost a full bcrypt compare, so neither the message nor the timing enumerates who has an account; `BLL/logueo.php` returned immediately when the `SELECT` found nothing.
 
@@ -177,7 +180,7 @@ The config is split: `lib/auth.config.ts` touches no database, so `proxy.ts` rea
 
 **Not verified:** nothing exercises a `collector` user whose `collector_id` is null — `requireCollector()` answers 403 rather than rendering empty screens as the legacy app did, but no such row exists in the seed. Sessions expire after 12 hours; the expiry path has not been waited out.
 
-### ✅ Phase 4 — Wire screens to real data (complete, 5 commits)
+### ✅ Phase 4 — Wire screens to real data (merged, 5 commits)
 
 Every screen reads through Prisma and every form is a Server Action. `lib/queries/*` returns the row shapes the screens were already written against, so the read swap stayed mechanical; `lib/actions/*` holds the writes.
 
@@ -215,7 +218,7 @@ Every screen reads through Prisma and every form is a Server Action. `lib/querie
 
 **One defect only running the app revealed:** adding `onValueChange` to `SelectField` — a Server Component — made it forward a function to a Client Component unconditionally, which 500'd `/clients`, `/credits` and `/payments`. The build was clean throughout.
 
-### ✅ Phase 5 — Reports (complete, 3 commits)
+### ✅ Phase 5 — Reports (merged, 3 commits)
 
 The three legacy reports, rebuilt as `@react-pdf/renderer` documents served from `/api/reports/[report]` and previewed on screen: **Clientes por cobrador**, **Créditos terminados por cobrador**, **Ingresos por fecha**. Receipts keep the Phase 1 print-CSS route, untouched.
 
@@ -251,9 +254,9 @@ The three legacy reports, rebuilt as `@react-pdf/renderer` documents served from
 
 **Verified by driving the running production build** (`pnpm build && pnpm start`, per Phase 3's lesson), then reconciling every figure against SQL: the auth matrix on the endpoint (401 anonymous, 403 collector, 200 admin); rejection of `abc`, `0`, `-1`, `2.5` and `1 OR 1=1` as collector ids, of `01/02/2026` as a date, of an inverted range, and of an unknown report name — 400 each, 404 for a collector who does not exist. Report 1 totals Q4,925.00 over five credits and report 3 totals Q470.00 over three payments, both matching `SUM` exactly; report 2 prints the real payoff dates 24/02/2026 and 16/05/2026 where the legacy printed the day of the run. A range of `from = to = 2026-05-16` returns that day's payoff, confirming both ends inclusive as SQL `BETWEEN` was; a range with nothing in it renders the empty line. The screen's table and the PDF agree row for row. Sixty injected credits produce a three-page document with the heading repeated on each page and a total of Q94,970.00, again exact; the fixture was dropped and the database re-seeded afterwards.
 
-**Not verified:** the `/reports` listing renders every row, like the other list screens — sixty is not a real book, and this is the same open risk. Only Latin-1 text has been through the standard fonts; a character outside WinAnsi would need a registered font file. The receipt print path was not re-exercised this phase.
+**Not verified:** the `/reports` listing renders every row. Phase 8 paged the list screens but deliberately left the reports alone — a report is bounded by one collector or one date range and is meant to be printed whole. Only Latin-1 text has been through the standard fonts; a character outside WinAnsi would need a registered font file. The receipt print path was not re-exercised this phase.
 
-### ✅ Phase 6 — Deployment (complete, 3 commits)
+### ✅ Phase 6 — Deployment (merged, 3 commits)
 
 A multi-stage `Dockerfile` over `output: 'standalone'`, a `docker-compose.yml` for Dokploy, `/api/health`, and a README that is the runbook. The legacy image was `php:8.1-apache` with `COPY . /var/www/html/` — the whole repository, secrets and `.git` included, served as the document root by root.
 
@@ -283,7 +286,7 @@ A multi-stage `Dockerfile` over `output: 'standalone'`, a `docker-compose.yml` f
 **Not verified:** anything on the real host. Nothing has been deployed to Dokploy — the Traefik labels it injects, the forwarded headers it sets, its own health polling and TLS are all assumed from the legacy stack's shape. The image was built and run on arm64 (Apple Silicon); the deploy target is almost certainly amd64, and while nothing here ships a native binary, the build has not been done for that platform. No restore has been rehearsed from the `pg_dump` the README recommends.
 
 
-### ✅ Phase 7 — The real data (complete, 3 commits)
+### ✅ Phase 7 — The real data (merged, 3 commits)
 
 The dump arrived: `db.sql`, a phpMyAdmin export of MySQL 5.7.44 taken 2026-08-15, 3.7 MB. **4,737 credits back to 2017-08-11, 61,868 ledger rows, 1,426 daily closes, 511 clients, 502 commerce, 5 collectors, 5 routes, 4 users.**
 
@@ -313,14 +316,14 @@ The dump arrived: `db.sql`, a phpMyAdmin export of MySQL 5.7.44 taken 2026-08-15
 | `/credits` | 4,737 | 1.48 s | 16.4 MB |
 | `/payments` | 57,131 | **22.9 s** | **297 MB** |
 
-`/payments` is unusable and `/credits` is not far behind. Paging is no longer deferrable — it is the last thing between this and go-live.
+`/payments` is unusable and `/credits` is not far behind. That became Phase 8, immediately and on the same branch.
 
 **Also worth knowing before anyone sees the dashboard:** delinquency reads **92.9%** and the recovery rate 7.1%. Both are correctly derived — 326 of the 351 credits the old system still calls active have taken no payment in over 30 days. The figure is true; it means the book carries years of dormant credits nobody ever closed.
 
 **Not verified:** the side-by-side diff against the running legacy app on the same data, which is the remaining Phase 4 item. The import was run on arm64 against a local Postgres, not on the deployment host.
 
 
-### ✅ Phase 8 — Paging the list screens (complete, 2 commits)
+### ✅ Phase 8 — Paging the list screens (merged, 2 commits)
 
 The blocker Phase 7 uncovered. Measured on a production build against the real book, before and after:
 
@@ -341,6 +344,63 @@ The blocker Phase 7 uncovered. Measured on a production build against the real b
 **Verified** against the real data with every figure reconciled to SQL: 4,737 credits split 351 active / 2,974 bad record / 1,412 cancelled — the whole book exactly; 57,131 payments over 1,143 pages, page 900 showing rows 44,951–45,000 and page 99999 clamping to the last; "ordoñez" returning the 68 payments SQL says it should and an unmatched term ANDing to none; 511 clients, 10 inactive, 160 on route 1. Capital Q1,113,375, outstanding Q736,766 and average payment Q200.26 all unchanged from the unpaged versions. Driven in the browser as well: paging, the debounced search resetting the page and surviving an accented character through the URL, and the collector select preserving the search beside it.
 
 **Not paged, on purpose:** the report listings. They are bounded by one collector or one date range and are meant to be printed whole — paging a report would defeat it.
+
+
+### ⬜ Phase 9 — Go-live (next)
+
+Everything below this line has never touched a server. The application is done; what remains is an operation, and it runs in a fixed order: build the host, rehearse on it, cut over, clean up.
+
+**Constraints, as settled with the owner:** the legacy app is live but lightly used, the new stack goes on a **different host**, database access to the old host is not yet established, and a **planned downtime window** is acceptable.
+
+#### The code this still needs (small)
+
+1. **`docker-compose.yml`** — a `mysql-legacy` service under an `etl` profile: `mysql:5.7`, on the `internal` network only, no published port. It is how the dump gets restored *on the new host* so `migrate` can read it over the Docker network. Without it the cutover import needs an SSH tunnel between two hosts, inside the window. Mirrors the `etl` profile already in `docker-compose.dev.yml`.
+2. **`.env.production.example`** — `MYSQL_URL` pointing at that service, marked as set only during the migration and unset afterwards.
+3. **`README.md`** — a cutover section: the dump command, the import sequence, the verification list, and the rollback.
+
+#### Stage A — Build the new host (touches nothing live)
+
+Requirements: Docker, and **≥4 GB RAM** — Dokploy builds the image on the host and `next build` plus a pnpm install will OOM on a 2 GB box. ~10 GB disk. Building on the server also settles the untested architecture question, since it builds natively for whatever the host is.
+
+1. Install Dokploy; confirm it created `dokploy-network`.
+2. Create a Compose application pointing at this repo's `docker-compose.yml`.
+3. Set every variable from `.env.production.example` in Dokploy's **Environment** tab — **all new secrets**. The three passwords in the legacy compose file are in git history and must not be reused.
+4. Give it a **temporary subdomain**, not the real one.
+5. Deploy. `migrate` applies the schema, `app` starts.
+
+Then verify the half that has never been tested: `/api/health` 200 over HTTPS, the login screen rendering, and — the single most likely first-deploy failure — that **Traefik sends `X-Forwarded-Host`**. Without it Auth.js answers `UntrustedHost` and every request is a 500.
+
+#### Stage B — Dress rehearsal on the real host
+
+Restore the existing `db.sql` into the `etl`-profile MySQL on the new host and run the import there. Then sign in as a real user — migrated `$2y$` hashes mean existing passwords work unchanged — and walk the app: a credit's ledger, a payment, a daily close, a report PDF.
+
+This is also where the **side-by-side parity diff** finally happens: the same figures out of `centauro_old` and out of this app, on the same data. It is the last outstanding item from Phase 4.
+
+At the end of Stage B the new system works on real (stale) data at a temporary address, with the legacy app still live and untouched. **The cutover is then a repeat of something that already worked on that machine.**
+
+> Treat the temporary subdomain as production the moment real data lands on it: everything is behind the login, the `adminer` profile stays off, and the address is not advertised.
+
+#### Stage C — Cutover (the planned window)
+
+Note the legacy app's dashboard totals and two or three credit balances first, to compare against afterwards.
+
+1. **Freeze.** On the old host, `docker stop centauro-web`. The app is unreachable; MySQL stays up and readable. Nobody can write.
+2. **Final dump**, copied to the new host.
+3. **Import** with `--force` to wipe the rehearsal data. One transaction with a 30-minute budget: it lands whole or not at all. The rehearsal import took **8 seconds**.
+4. **Verify** against the figures from step 0 and the script's own reconciliation. Sign in as an admin and as a collector.
+5. **`pg_dump` immediately**, before the first real write, so there is a clean restore point.
+6. **Switch DNS** to the new host and move the real domain onto the app in Dokploy.
+7. Leave the old host **stopped but intact** for at least a month.
+
+**Rollback** is DNS back plus `docker start centauro-web` — valid right up until someone records a payment in the new system. That write is the point of no return; say so out loud before step 6.
+
+#### Stage D — Afterwards
+
+- Delete every copy of the dump, from both hosts and any laptop. `db.sql` is the whole business in plaintext.
+- `docker compose --profile etl down -v` to remove the scratch MySQL.
+- Retire the temporary subdomain.
+- **Schedule the backup.** The README documents a `pg_dump` line that nobody runs; it is now the only copy of the business.
+- Rotate the legacy credentials anywhere else they were used.
 
 ---
 
@@ -372,6 +432,9 @@ The blocker Phase 7 uncovered. Measured on a production build against the real b
 - `i18n/{routing,navigation,request}.ts`, `messages/{es,en}.json`
 - `prisma/{schema.prisma,seed.ts,migrations/}`, `prisma.config.ts`, `scripts/{migrate-from-mysql.ts,legacy-fixture.sql}`, `docker-compose.dev.yml`
 - Phase 6 added `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `.env.production.example`, `app/api/health/route.ts` and a `README.md` that is the deploy runbook
+- Phase 7 added `scripts/legacy-values.ts` (+ tests) — the `bit(1)` / `decimal(9,2)` coercions the whole import rests on — and the `drop_daily_close_unique` migration
+- Phase 8 added `lib/pagination.ts` (+ tests) and `components/{pagination,list-filters}.tsx`. `components/search-input.tsx` is now unused by the paged screens; `ListFilters` replaced it
+- **`../db.sql`** — the real dump, outside the repo and gitignored by being outside it. It is the whole business in plaintext: not a repository artefact, and to be deleted once the migration is done
 
 ---
 
@@ -389,20 +452,27 @@ The blocker Phase 7 uncovered. Measured on a production build against the real b
 
 **Phase 6 (done locally; not done on the real host):** `docker compose up -d --build` on a cold volume, then a second `up` to confirm `migrate` is a no-op; the app reachable only through the compose network; the anonymous route matrix and a real sign-in through the login form against the built image; a report PDF out of the alpine container; the probe falling to 503 and recovering when Postgres stops and starts. Two things are worth repeating on any deployment change: **check that the image builds with no database reachable** — that is what caught the prerendered `/login` — and sign in against the *built* image rather than `pnpm start`, because `UntrustedHost` is invisible until then.
 
+**Phase 7 (done against the real dump, locally):** `--dry-run` first, then the import, then read it back — per-table row counts, `SUM(principal)`, ledger `SUM(amount)` and daily-close `SUM(collected)` against MySQL, and the counts that prove the flag coercion landed (payments vs originations, voided, inactive rows). Repeat all of it on the deployment host at cutover. Two things worth repeating on any ETL change: run it against `scripts/legacy-fixture.sql` as well, since it now declares the real column types, and check an accented surname end to end — the encoding defect was invisible in every count.
+
+**Phase 8 (done against the real dump, locally):** every filter and page reconciled to SQL — the three credit statuses must still partition the book exactly, and the summary tiles must not move when the table is filtered. Worth repeating on any list change: compare a tile against its `SUM` in SQL, and confirm a page past the end clamps rather than rendering empty.
+
+**Phase 9 (not started):** see the stages above. The verification that matters most is the one that has never run — a real sign-in through Traefik, and the side-by-side diff against the legacy app on the same data.
+
 **Suggested test setup** — done: Vitest covers the ledger math (`recalculateBalances`, payoff/`bad_record` detection, void-cascade), the route policy, the daily-close formula and the clock.
 
 ---
 
 ## 7. Open risks and questions
 
-- ~~**No schema dump yet.**~~ — the dump landed and the ETL has run against it (Phase 7). What it leaves open is the side-by-side parity diff against the running legacy app on the same data.
+- ~~**No schema dump yet.**~~ — the dump landed and the ETL has run against it (Phase 7). **Still open: the side-by-side parity diff** against the running legacy app on the same data. It is the last Phase 4 item and belongs in Stage B.
 - ~~**The list screens do not page.**~~ — done in Phase 8, without a `DISTINCT ON` projection in the end: the tiles only ever needed the live portfolio, so the derivation stayed in one place.
 - ~~**Search and filter controls on the list screens are still inert.**~~ — wired in Phase 8 on `/clients`, `/credits` and `/payments`. The header's global search box is still decorative, and `/collectors`, `/routes` and the admin screens are small enough not to page but have no search either.
 - **The report PDFs use only the standard PDF fonts.** Now answerable: the real book holds 13 non-ASCII values and every one is `Ñ`, `ñ` or an accented vowel — all inside WinAnsi, so Helvetica covers the migrated names. A future client whose name leaves that range would still render blank.
 - ~~**Hard-delete → soft-delete** for credits~~ — done; `deleteCredit` soft-deletes the credit and its ledger. Nothing in the app un-deletes one yet, so a mistaken delete needs SQL.
 - ~~Old money columns are floats; some historical balances will not reconcile to the penny.~~ — the columns are `decimal(9,2)` and exact. Ten stored balances still disagree with their own entries (nine of them one cascade on credit 4257, ending at a stored −50.00); the import takes the recomputed value and reports every difference.
 - ~~MySQL 5.7 is EOL and the compose file commits DB credentials in plaintext.~~ — the new stack takes every secret from the environment and refuses to start without it. **The old credentials are still in the repository history and must be rotated, not reused.**
-- The mobile drawer (<1024px) has not been verified interactively.
+- The mobile drawer (<1024px) has not been verified interactively. Collectors work from phones, so this deserves a real check before they are told to use it.
+- **Delinquency reads 92.9% on the real book** and the recovery rate 7.1%. Correctly derived, and startling: 326 of the 351 credits the old system still calls active have taken no payment in over 30 days. Whoever sees the dashboard first should be told this is the legacy book's true state, not a defect — and it is worth asking the owner whether those credits should be written off.
 - ~~**Row-level scoping is written against the mock data.**~~ — done; `Scope` is threaded through every read in `lib/queries/*`.
 - `forbidden()` / `unauthorized()` depend on `experimental.authInterrupts`. It is the sanctioned mechanism in Next 16 but still flagged experimental; a Next upgrade should re-check the 403 path.
 - `next-auth` is on `5.0.0-beta.32`. It declares Next 16 support and has been in beta a long while, but it is a beta on the login path.
@@ -412,3 +482,30 @@ The blocker Phase 7 uncovered. Measured on a production build against the real b
 - **Backups are documented, not automated, and no restore has been rehearsed.** Neither project has ever had one. This is the largest operational gap left: the ETL is a one-way door onto a database with no proven recovery path.
 - **The single Postgres container is the whole business.** One host, one volume, no replica. Adequate for the load, and worth being deliberate about rather than accidental.
 - **The migrator image is 1.5 GB** because it carries the full toolchain for the ETL. Once the legacy import has happened for good, it could shrink to a production install, or go away.
+- **The header's global search box is still decorative**, and `/collectors`, `/routes` and the admin screens have no search. They are small enough not to need paging, which is not the same as not needing to be searchable.
+- **Nothing un-deletes a soft-deleted credit**, and nothing un-voids a payment. Both need SQL, by an operator, on production.
+
+---
+
+## 8. Next steps at a glance
+
+Everything in §3 is merged. This is what is left, in order — the first three items are code and can be done any time; the rest is an operation with a fixed sequence.
+
+| # | Step | Where | Blocked on |
+| --- | --- | --- | --- |
+| 1 | Add the `etl`-profile `mysql-legacy` service to `docker-compose.yml`, `MYSQL_URL` to `.env.production.example`, and a cutover section to `README.md` | repo | nothing |
+| 2 | Provision the new host (Docker, ≥4 GB RAM) and install Dokploy | new host | a host |
+| 3 | Generate fresh secrets; set them in Dokploy's Environment tab | Dokploy | step 2 |
+| 4 | Deploy to a **temporary subdomain**; verify health, TLS, and `X-Forwarded-Host` | Dokploy | step 3 |
+| 5 | **Dress rehearsal**: import `db.sql` on the host, sign in as a real user, walk the app | new host | step 4 |
+| 6 | **Parity diff** against the running legacy app on the same data | both | step 5 |
+| 7 | **Cutover window**: freeze → final dump → `--force` import → verify → `pg_dump` → DNS | both hosts | step 6 |
+| 8 | Delete every dump copy; schedule the backup; retire the temp subdomain | everywhere | step 7 |
+
+**The three things most likely to go wrong, in order of likelihood:**
+
+1. **`X-Forwarded-Host` is not set by Traefik.** Auth.js answers `UntrustedHost` and every request is a 500. Dev mode and `pnpm start` both hide it; only a real deploy shows it.
+2. **The image build runs out of memory on a small VPS.** `next build` on the host needs more than 2 GB.
+3. **Someone runs the ETL against the live MySQL** instead of a restored copy. It only ever reads, but the rule exists so that it stays only ever reading.
+
+**The one decision still owed:** whether the 326 dormant "active" credits should be written off before or after go-live. They are why the dashboard reads 92.9% delinquency, and the answer changes what the first screen anyone sees says about the business.
