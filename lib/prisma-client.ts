@@ -18,3 +18,21 @@ export function createPrismaClient(connectionString = process.env.DATABASE_URL) 
   // its own native query engine.
   return new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
 }
+
+/**
+ * Builds a client on the *direct* connection, for the long-running jobs.
+ *
+ * A managed Postgres (Neon, Supabase) offers two URLs. The pooled one goes
+ * through PgBouncer in transaction mode, which is what a serverless app needs
+ * — every invocation opens its own connection — but which cannot hold a
+ * session open across statements. The ETL is a single transaction over 61,868
+ * rows with a 30-minute budget, and the seed and `prisma migrate` take
+ * advisory locks; all three need the direct URL or they fail partway.
+ *
+ * `DIRECT_DATABASE_URL` is therefore set wherever those scripts run — a
+ * laptop, a CI job — and left unset on the deployed app, which falls back to
+ * the pooled `DATABASE_URL` it should be using anyway.
+ */
+export function createDirectPrismaClient() {
+  return createPrismaClient(process.env.DIRECT_DATABASE_URL ?? process.env.DATABASE_URL)
+}

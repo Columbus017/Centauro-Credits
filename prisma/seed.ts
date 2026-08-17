@@ -14,7 +14,7 @@ import bcrypt from 'bcryptjs'
 
 import { isoDate, resetIdSequences } from '@/lib/db-utils'
 import { recalculateBalances, toCents } from '@/lib/ledger'
-import { createPrismaClient } from '@/lib/prisma-client'
+import { createDirectPrismaClient } from '@/lib/prisma-client'
 import {
   collectors,
   commerce,
@@ -62,7 +62,7 @@ function assertLedgerAgrees() {
 async function main() {
   assertLedgerAgrees()
 
-  const prisma = createPrismaClient()
+  const prisma = createDirectPrismaClient()
 
   try {
     // Child-first, so the foreign keys hold at every step.
