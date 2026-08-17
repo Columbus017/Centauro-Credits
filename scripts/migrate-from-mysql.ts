@@ -41,7 +41,7 @@ import {
   recalculateBalances,
   toCents,
 } from '@/lib/ledger'
-import { createPrismaClient } from '@/lib/prisma-client'
+import { createDirectPrismaClient } from '@/lib/prisma-client'
 import type { PrismaClient } from '@/lib/generated/prisma/client'
 import { flag, money, type LegacyFlag, type LegacyMoney } from './legacy-values'
 
@@ -794,7 +794,7 @@ async function main() {
     process.exit(1)
   }
 
-  const prisma = createPrismaClient()
+  const prisma = createDirectPrismaClient()
   try {
     const existing = await prisma.credit.count()
     if (existing > 0 && !FORCE) {

@@ -10,6 +10,10 @@ export default defineConfig({
     seed: 'tsx prisma/seed.ts',
   },
   datasource: {
-    url: process.env['DATABASE_URL'],
+    // The CLI only ever runs migrations, which take an advisory lock and so
+    // need a session the pooler will not hand out. `DIRECT_DATABASE_URL` is
+    // set where a managed Postgres offers both; locally the two are the same
+    // and only `DATABASE_URL` exists. See `lib/prisma-client.ts`.
+    url: process.env['DIRECT_DATABASE_URL'] ?? process.env['DATABASE_URL'],
   },
 })
