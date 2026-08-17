@@ -6,7 +6,13 @@ const nextConfig: NextConfig = {
   // `node_modules` files the traced routes actually import. It is what the
   // `runner` stage of the Dockerfile copies, and the reason the deployed image
   // needs no `pnpm install` and no lockfile.
-  output: 'standalone',
+  //
+  // It is a **self-hosting** output, and asking for it on Vercel breaks the
+  // build: the copy step reads `.next/next-server.js.nft.json`, a trace file
+  // Vercel's own pipeline does not leave behind, and the build dies with
+  // `ENOENT … next-server.js.nft.json`. Vercel traces and bundles the app
+  // itself, so there it must be off. `VERCEL` is set in every Vercel build.
+  output: process.env.VERCEL ? undefined : 'standalone',
 
   experimental: {
     // Turns on `forbidden()` / `unauthorized()` and their `forbidden.tsx` /
