@@ -1,7 +1,7 @@
 # Centauro Créditos — PHP → Next.js Migration Plan
 
-**Status:** Phases 0–5 merged. Phase 6 is code-complete and awaiting review. The ETL still needs one run against the real dump, and nothing has yet been deployed to the real host.
-**Last updated:** 2026-08-14
+**Status:** Phases 0–5 merged. Phases 6 (deployment), 7 (the real data) and 8 (paging) are code-complete and awaiting review. What remains before go-live is the deploy to the new host and the cutover.
+**Last updated:** 2026-08-16
 
 ---
 
@@ -50,6 +50,8 @@ All work happens in `centauro_credits/`. **Each phase gets its own branch, cut f
 | 4 | `phase-4-data-wiring` | ✅ merged |
 | 5 | `phase-5-reports` | ✅ merged |
 | 6 | `phase-6-deployment` | ✅ complete, awaiting merge |
+| 7 | `phase-7-legacy-import` | ✅ complete, awaiting merge |
+| 8 | `phase-8-paging` | ✅ complete, awaiting merge |
 
 Protocol: `git checkout main && git pull && git checkout -b phase-N-<name>` → implement → commit in logical chunks (not one giant commit) → report the diff summary and stop for review → on approval, merge and cut the next branch. Phase 4 may warrant sub-branches per vertical slice.
 
@@ -96,7 +98,7 @@ Extracted for reuse: `SummaryStat`, `FormField`, `SearchInput`, `SelectField`, `
 
 Postgres 16 + Prisma 7. The schema, the migration, the seed and the ETL all exist and run; `scripts/legacy-fixture.sql` reconstructs the legacy DDL from the old app's prepared statements so the ETL could be exercised end to end before the real dump arrives.
 
-**Still outstanding: one ETL run against the real `mysqldump`.** Everything below the schema is inferred from SQL strings — column widths, nullability and any column the PHP never touches are guesses, and the real dump takes precedence.
+**The ETL has now met the real dump** — see Phase 7. Two of the inferred types were wrong (`bit(1)` flags, `decimal(9,2)` money) and both broke the import; the fixture had encoded the same guesses, so it could not have caught them. Everything in this section that the dump has since settled is corrected in place.
 
 Reconstructed old schema:
 
@@ -111,7 +113,7 @@ income(idIncome, _idCollector, date, incomes, base, exes, credits)
 user(idUser, _idCollector, firstName, lastName, userName, passWord, permissions, state)
 ```
 
-New Prisma schema — snake_case, real FKs, `Decimal(12,2)` for all money (the old app used floats, a live rounding bug), booleans instead of `state`/`cancel`/`balpay` int flags, `timestamptz` audit columns:
+New Prisma schema — snake_case, real FKs, `Decimal(12,2)` for all money, booleans instead of the `state`/`cancel`/`balpay` flags, `timestamptz` audit columns:
 
 `commerce` · `collectors` · `routes` · `customers` · `credits` · `ledger_entries` · `daily_closes` · `users`
 
@@ -280,6 +282,66 @@ A multi-stage `Dockerfile` over `output: 'standalone'`, a `docker-compose.yml` f
 
 **Not verified:** anything on the real host. Nothing has been deployed to Dokploy — the Traefik labels it injects, the forwarded headers it sets, its own health polling and TLS are all assumed from the legacy stack's shape. The image was built and run on arm64 (Apple Silicon); the deploy target is almost certainly amd64, and while nothing here ships a native binary, the build has not been done for that platform. No restore has been rehearsed from the `pg_dump` the README recommends.
 
+
+### ✅ Phase 7 — The real data (complete, 3 commits)
+
+The dump arrived: `db.sql`, a phpMyAdmin export of MySQL 5.7.44 taken 2026-08-15, 3.7 MB. **4,737 credits back to 2017-08-11, 61,868 ledger rows, 1,426 daily closes, 511 clients, 502 commerce, 5 collectors, 5 routes, 4 users.**
+
+**Reading it settled two guesses that no fixture could have caught,** because `scripts/legacy-fixture.sql` encoded the same ones:
+
+1. **The flags are `bit(1)`, not `int(1)`.** mysql2 returns those as a Buffer, so every `value === 1` in the ETL was false. Uncorrected, the import would have written all 61,868 ledger rows as originations, no payment voided, no credit cancelled — and `state !== 1` inverted, so every deactivated client, collector and *login* would have come back active.
+2. **The money columns are `decimal(9,2)`, not `double`.** mysql2 returns those as a string and `money()` called `.toFixed()` on it. This one crashed rather than corrupted.
+
+`scripts/legacy-values.ts` holds both coercions, tested against the shapes MySQL really sends as well as the ones the fixture used, and the fixture now declares the real types.
+
+**A third defect only the data revealed: every accented name was arriving mojibake.** The tables are `CHARSET=latin1` but the PHP connected with `mysqli_set_charset($conn, "utf8")`, so the bytes physically stored are UTF-8 that MySQL believes are latin1 — asked for utf8 it converts them *again*, and `Ñ` comes back `Ã‘`. Reading with `charset: 'binary'` and decoding the raw bytes gives the names back. All 13 non-ASCII values in the dump are valid UTF-8 that way; anything that is not is read as latin1 and reported.
+
+**Two decisions the data forced:**
+
+- **`UNIQUE (collector_id, close_date)` was withdrawn.** Phase 2 added it because the legacy app double-counted a collector's day. The real book has 11 such days across five years and only one is an identical double-submission; enforcing it retroactively meant discarding 11 rows and **Q71,725.00** of recorded collections. `submitDailyClose` refuses new ones — a check, not a guarantee, and the model says so.
+- **`cancelled_at` and `bad_record` are derived, not copied**, like the running balances beside them already were. 23 credits contradict their own ledger: eight paid off but still marked active, one marked cancelled with Q25 owing. Every contradiction is in the report; what lands in the database is what the entries say.
+
+**What the data is actually like.** No orphaned foreign keys, no credit without a ledger, and **every origination exactly `principal × 1.15`** — the 15% rule holds across nine years without exception. 34 findings in total: the 11 duplicate close-days, 23 flag contradictions, and 10 stored balances that disagree with their own entries — nine of those one cascade on credit 4257 that ends at a stored **−50.00**, an overpayment the old app recorded as a negative balance.
+
+**Verified** by importing into Postgres and reading it back: every table's row count matches, `SUM(principal)` is 10,545,464.13 on both sides, ledger `SUM(amount)` 23,575,946.25 and daily-close `SUM(collected)` 6,197,490.00 match exactly. 57,131 payments against 4,737 originations, 249 voided rows, 10 inactive clients, 1 inactive collector — every one of which would have been zero or wrong before the flag fix. Cancelled credits land at 4,386 and bad records at 2,974, each reconciling to the legacy count plus the derived corrections minus credit 162. Accented surnames read correctly end to end. Then the app was driven against it: the dashboard, its six-month series, and the login panel all render real figures.
+
+**The volume answers the open question, and badly.** Measured on a production build against the real book:
+
+| Screen | Rows | Time | HTML |
+| --- | --- | --- | --- |
+| `/clients` | 511 | 0.53 s | 2.9 MB |
+| `/credits` | 4,737 | 1.48 s | 16.4 MB |
+| `/payments` | 57,131 | **22.9 s** | **297 MB** |
+
+`/payments` is unusable and `/credits` is not far behind. Paging is no longer deferrable — it is the last thing between this and go-live.
+
+**Also worth knowing before anyone sees the dashboard:** delinquency reads **92.9%** and the recovery rate 7.1%. Both are correctly derived — 326 of the 351 credits the old system still calls active have taken no payment in over 30 days. The figure is true; it means the book carries years of dormant credits nobody ever closed.
+
+**Not verified:** the side-by-side diff against the running legacy app on the same data, which is the remaining Phase 4 item. The import was run on arm64 against a local Postgres, not on the deployment host.
+
+
+### ✅ Phase 8 — Paging the list screens (complete, 2 commits)
+
+The blocker Phase 7 uncovered. Measured on a production build against the real book, before and after:
+
+| Screen | Rows | Before | After |
+| --- | --- | --- | --- |
+| `/payments` | 57,131 | 22.9 s · 297 MB | **0.04 s · 326 KB** |
+| `/credits` | 4,737 | 1.48 s · 16.4 MB | **0.06 s · 244 KB** |
+| `/clients` | 511 | 0.53 s · 2.9 MB | **0.10 s · 352 KB** |
+
+`lib/pagination.ts` holds the arithmetic — client-safe, pure, 17 tests. A `?page=` that is not plain digits is page one; a page past the end clamps to the last page with rows on it, so filtering a list down while on page 900 shows results rather than an empty table. That clamp is why the count query runs before the page query.
+
+**The search boxes and filter selects have been inert since Phase 1.** At 511 clients that was untidy; at 57,131 payments it means there is no way to find a payment, so they had to ship with the paging. Filters are the URL — the contract `/reports` has had since Phase 5 — and every search term must match the card number or either half of the name, so "ordoñez martha" finds the same client as "martha ordoñez".
+
+**No second copy of the ledger rule.** The summary tiles were the risk: aggregating them in SQL would have put `outstanding` in a second place, which is exactly the drift `syncCredit()` exists to prevent. It turned out not to be needed. Every credits and clients tile concerns the *live* portfolio — 351 active credits against 4,737 — a set bounded by open business rather than by how long the business has run, so `lib/ledger.ts` still walks them and remains the only implementation. Only the payments tiles became SQL aggregates, and those are sums and counts of a column, not a derivation. The credits and clients tiles are deliberately **not** filtered by the table: searching for a client should not redefine the size of the book.
+
+**Three full-book loads found on the way**, none of them visible before real data: the payments screen's collector dropdown called `listCollectors()`, which walks every credit and every ledger entry to render five options; the same dropdown and the clients screen's route filter offered *active* rows only, hiding a retired collector's five years of payments and a retired route's clients from filters over history; and `/routes/[id]` loaded all 511 clients and all 4,737 credits to show the handful on one round.
+
+**Verified** against the real data with every figure reconciled to SQL: 4,737 credits split 351 active / 2,974 bad record / 1,412 cancelled — the whole book exactly; 57,131 payments over 1,143 pages, page 900 showing rows 44,951–45,000 and page 99999 clamping to the last; "ordoñez" returning the 68 payments SQL says it should and an unmatched term ANDing to none; 511 clients, 10 inactive, 160 on route 1. Capital Q1,113,375, outstanding Q736,766 and average payment Q200.26 all unchanged from the unpaged versions. Driven in the browser as well: paging, the debounced search resetting the page and surviving an accented character through the URL, and the collector select preserving the search beside it.
+
+**Not paged, on purpose:** the report listings. They are bounded by one collector or one date range and are meant to be printed whole — paging a report would defeat it.
+
 ---
 
 ## 4. Design → domain mapping (binding)
@@ -333,12 +395,12 @@ A multi-stage `Dockerfile` over `output: 'standalone'`, a `docker-compose.yml` f
 
 ## 7. Open risks and questions
 
-- **No schema dump yet.** Phase 2 was built against a reconstructed schema and the ETL has never seen real data. Phase 4 was built and verified against the seed, so this now blocks only the side-by-side parity diff and the volume questions below.
-- **List screens load a credit's whole ledger to derive its figures.** Correct, and it keeps the list and the detail in agreement, but it has never met a real table. If the migrated book turns out to be large, `/credits` and `/clients` are the first places to feel it, and the fix is a `DISTINCT ON` projection rather than abandoning the derivation.
-- **Search and filter controls on the list screens are still inert.** They were built in Phase 1 and Phase 4 did not wire them; every list renders in full. `/reports` is now the same shape: its filters work, but the generated listing renders every row with no paging.
-- **The report PDFs use only the standard PDF fonts.** Helvetica covers WinAnsi, which covers Spanish and every accented name in the seed, but a character outside it would render blank until a font file is registered. Worth a look once the real dump lands and the true charset of the migrated names is known.
+- ~~**No schema dump yet.**~~ — the dump landed and the ETL has run against it (Phase 7). What it leaves open is the side-by-side parity diff against the running legacy app on the same data.
+- ~~**The list screens do not page.**~~ — done in Phase 8, without a `DISTINCT ON` projection in the end: the tiles only ever needed the live portfolio, so the derivation stayed in one place.
+- ~~**Search and filter controls on the list screens are still inert.**~~ — wired in Phase 8 on `/clients`, `/credits` and `/payments`. The header's global search box is still decorative, and `/collectors`, `/routes` and the admin screens are small enough not to page but have no search either.
+- **The report PDFs use only the standard PDF fonts.** Now answerable: the real book holds 13 non-ASCII values and every one is `Ñ`, `ñ` or an accented vowel — all inside WinAnsi, so Helvetica covers the migrated names. A future client whose name leaves that range would still render blank.
 - ~~**Hard-delete → soft-delete** for credits~~ — done; `deleteCredit` soft-deletes the credit and its ledger. Nothing in the app un-deletes one yet, so a mistaken delete needs SQL.
-- Old money columns are floats; some historical balances will not reconcile to the penny. Surface during ETL rather than papering over.
+- ~~Old money columns are floats; some historical balances will not reconcile to the penny.~~ — the columns are `decimal(9,2)` and exact. Ten stored balances still disagree with their own entries (nine of them one cascade on credit 4257, ending at a stored −50.00); the import takes the recomputed value and reports every difference.
 - ~~MySQL 5.7 is EOL and the compose file commits DB credentials in plaintext.~~ — the new stack takes every secret from the environment and refuses to start without it. **The old credentials are still in the repository history and must be rotated, not reused.**
 - The mobile drawer (<1024px) has not been verified interactively.
 - ~~**Row-level scoping is written against the mock data.**~~ — done; `Scope` is threaded through every read in `lib/queries/*`.

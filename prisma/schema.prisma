@@ -5,14 +5,23 @@
 // original so `scripts/migrate-from-mysql.ts` can preserve every primary key
 // (card numbers and printed receipts reference them), with four corrections:
 //
-//   1. Money is `Decimal(12,2)`. The old columns were floats — a live rounding
-//      bug on a ledger that must reconcile to the centavo.
+//   1. Money is `Decimal(12,2)`. The old columns turned out to be
+//      `decimal(9,2)` — exact storage, so the drift is not in the columns. It
+//      is in the PHP and JS that read them: `balance == 0` compared as a
+//      float, and browser totals summed as doubles. Keeping the values exact
+//      end to end is what `lib/ledger.ts` and its centavos are for.
 //   2. Foreign keys are real. The old schema had none; `_idCustomer` and
 //      friends were conventions enforced only by the PHP.
 //   3. The `state` / `cancel` / `balpay` integer flags become booleans, enums
 //      or nullable timestamps, so a row records *when* something happened.
-//   4. `daily_closes` is unique per collector per day. The old `income` table
-//      silently accepted duplicate closes.
+//   4. Nothing is stored that its own entries do not support: a ledger row's
+//      running balance and a credit's `cancelled_at` / `bad_record` are all
+//      derived on import and on every write, because the legacy versions were
+//      maintained by hand in four files that disagreed.
+//
+// A fifth correction was attempted and withdrawn: `daily_closes` was unique per
+// collector per day until the real dump produced 11 legitimate historical
+// duplicates. See the note on that model.
 
 generator client {
   provider = "prisma-client"
@@ -239,9 +248,23 @@ model DailyClose {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  /// The old app had no such constraint and accepted duplicate closes, which
-  /// double-counted a collector's day on every dashboard.
-  @@unique([collectorId, closeDate])
+  /// **Deliberately not unique on `(collector_id, close_date)`.**
+  ///
+  /// Phase 2 added that constraint because the legacy app had none and
+  /// double-counted a collector's day on every dashboard. The real dump then
+  /// turned out to contain 11 such days across five years — and only one of
+  /// them is an identical double-submission. Enforcing uniqueness
+  /// retroactively would have meant discarding 11 rows and Q71,725.00 of
+  /// recorded collections, leaving the new system's history permanently at
+  /// odds with the books the business actually kept.
+  ///
+  /// New duplicates are refused by `submitDailyClose` in
+  /// `lib/actions/credits.ts` instead. That is a check rather than a
+  /// guarantee: two closes posted for the same collector and day at the same
+  /// instant could both pass. With five collectors closing once a day, the
+  /// race is theoretical, and losing five years of real history to prevent it
+  /// is not a trade worth making.
+  @@index([collectorId, closeDate])
   @@index([closeDate])
   @@map("daily_closes")
 }

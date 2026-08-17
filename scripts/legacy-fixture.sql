@@ -1,18 +1,26 @@
 -- Reconstructed legacy MySQL 5.7 schema, plus a small fixture that exercises
 -- every branch of `scripts/migrate-from-mysql.ts`.
 --
--- The real database has no dump in either repository, so this DDL is inferred
--- from the SQL strings in `../centauro_old` (`BLL/*.php` prepared statements
--- and the `bind_param` type codes). Column names, order and types match what
--- those statements imply; widths and nullability are best guesses and the real
--- dump takes precedence over this file wherever they disagree.
+-- Originally inferred from the SQL strings in `../centauro_old`, and **since
+-- corrected against a real `mysqldump`** (MySQL 5.7.44). Two of the inferred
+-- types were wrong in ways that broke the ETL, and both are fixed here:
+--
+--   * every flag is `bit(1)`, not `int(1)` — `mysql2` returns those as a
+--     Buffer, so `value === 1` was false for every row in the database;
+--   * every money column is `decimal(9,2)`, not `double` — `mysql2` returns
+--     those as a string, so `.toFixed()` threw.
+--
+-- `scripts/legacy-values.ts` handles both. Widths and nullability here remain
+-- looser than the real schema (which is `varchar(45)` names, `varchar(13)` DPI,
+-- `varchar(10)` mobile, and NOT NULL on most columns); the ETL truncates
+-- defensively, and a looser fixture still accepts everything the real one does.
 --
 --   docker compose -f docker-compose.dev.yml --profile etl up -d mysql
 --   docker exec -i centauro-mysql-etl mysql -uroot -petl localdb < scripts/legacy-fixture.sql
 --   pnpm db:migrate-legacy --dry-run
 --
 -- The fixture deliberately contains dirty data: dangling foreign keys, a
--- duplicate daily close, a voided payment, float drift on a stored balance,
+-- duplicate daily close, a voided payment, a stored balance that drifted,
 -- an origination that disagrees with `total * 1.15`, and a `cancel` flag that
 -- contradicts its own ledger. A clean run over this file proves nothing; the
 -- point is that each one is reported.
@@ -25,7 +33,7 @@ CREATE TABLE `commerce` (
   `idCommerce` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`idCommerce`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 CREATE TABLE `collector` (
   `idCollector` int(11) NOT NULL AUTO_INCREMENT,
@@ -35,9 +43,9 @@ CREATE TABLE `collector` (
   `mobile` varchar(20) DEFAULT NULL,
   `DPI` varchar(20) DEFAULT NULL,
   `birthDate` date DEFAULT NULL,
-  `state` int(1) DEFAULT '0',
+  `state` bit(1) DEFAULT b'0',
   PRIMARY KEY (`idCollector`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 CREATE TABLE `route` (
   `idRoute` int(11) NOT NULL AUTO_INCREMENT,
@@ -45,9 +53,9 @@ CREATE TABLE `route` (
   `routeName` varchar(100) DEFAULT NULL,
   `details` varchar(200) DEFAULT NULL,
   `_idCollector` int(11) DEFAULT NULL,
-  `state` int(1) DEFAULT '0',
+  `state` bit(1) DEFAULT b'0',
   PRIMARY KEY (`idRoute`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 CREATE TABLE `customer` (
   `idCustomer` int(11) NOT NULL AUTO_INCREMENT,
@@ -59,46 +67,48 @@ CREATE TABLE `customer` (
   `address` varchar(200) DEFAULT NULL,
   `mobile` varchar(20) DEFAULT NULL,
   `mobile2` varchar(20) DEFAULT NULL,
-  `state` int(1) DEFAULT '0',
+  `state` bit(1) DEFAULT b'0',
   PRIMARY KEY (`idCustomer`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- `total` is the principal; the payoff is `total * 1.15`, materialised only in
--- the origination row of `balance`. Money columns are doubles throughout.
+-- the origination row of `balance`. Money is `decimal(9,2)` — exact storage, so
+-- a balance that disagrees with its own entries is a logic error in the old PHP
+-- and never a rounding artefact.
 CREATE TABLE `credit` (
   `idCredit` int(11) NOT NULL AUTO_INCREMENT,
   `_idCustomer` int(11) DEFAULT NULL,
   `_idCollector` int(11) DEFAULT NULL,
   `code` varchar(20) DEFAULT NULL,
   `dateStart` date DEFAULT NULL,
-  `total` double DEFAULT NULL,
-  `cancel` int(1) DEFAULT '0',
-  `record` int(1) DEFAULT '0',
+  `total` decimal(9,2) DEFAULT NULL,
+  `cancel` bit(1) DEFAULT b'0',
+  `record` bit(1) DEFAULT b'0',
   PRIMARY KEY (`idCredit`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- `balpay`: 0 = origination, 1 = payment. `state`: 1 = voided.
 CREATE TABLE `balance` (
   `idBalance` int(11) NOT NULL AUTO_INCREMENT,
   `_idCredit` int(11) DEFAULT NULL,
   `date` date DEFAULT NULL,
-  `balpay` int(1) DEFAULT NULL,
-  `amount` double DEFAULT NULL,
-  `balance` double DEFAULT NULL,
-  `state` int(1) DEFAULT '0',
+  `balpay` bit(1) DEFAULT NULL,
+  `amount` decimal(9,2) DEFAULT NULL,
+  `balance` decimal(9,2) DEFAULT NULL,
+  `state` bit(1) DEFAULT b'0',
   PRIMARY KEY (`idBalance`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 CREATE TABLE `income` (
   `idIncome` int(11) NOT NULL AUTO_INCREMENT,
   `_idCollector` int(11) DEFAULT NULL,
   `date` date DEFAULT NULL,
-  `incomes` double DEFAULT NULL,
-  `base` double DEFAULT NULL,
-  `exes` double DEFAULT NULL,
-  `credits` double DEFAULT NULL,
+  `incomes` decimal(9,2) DEFAULT NULL,
+  `base` decimal(9,2) DEFAULT NULL,
+  `exes` decimal(9,2) DEFAULT NULL,
+  `credits` decimal(9,2) DEFAULT NULL,
   PRIMARY KEY (`idIncome`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- `permissions`: 0 drew the admin sidebar, 1 the collector one.
 CREATE TABLE `user` (
@@ -108,10 +118,10 @@ CREATE TABLE `user` (
   `lastName` varchar(50) DEFAULT NULL,
   `userName` varchar(50) DEFAULT NULL,
   `passWord` varchar(255) DEFAULT NULL,
-  `permissions` int(1) DEFAULT '0',
-  `state` int(1) DEFAULT '0',
+  `permissions` int(11) DEFAULT '0',
+  `state` bit(1) DEFAULT b'0',
   PRIMARY KEY (`idUser`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- ---------------------------------------------------------------- fixture
 
@@ -165,7 +175,7 @@ INSERT INTO `balance` VALUES
   (11, 4, '2024-04-01', 1, 150,    1000,   0),
   (12, 4, '2024-04-08', 1, 150,    850,    1),
   (13, 4, '2024-04-15', 1, 150,    850,    0),
-  -- credit 5: 333.33 * 1.15 = 383.33, but a float wrote 383.32
+  -- credit 5: 333.33 * 1.15 = 383.33, but 383.32 was written
   (14, 5, '2024-04-01', 0, 383.32, 383.32, 0),
   -- credit 6: parent credit is unmigratable, so this goes with it
   (15, 6, '2024-04-10', 0, 575,    575,    0),

@@ -3,8 +3,8 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { AppShell } from '@/components/app-shell'
 import { PageHeader } from '@/components/page-header'
-import { SearchInput } from '@/components/search-input'
-import { SelectField } from '@/components/select-field'
+import { ListFilters } from '@/components/list-filters'
+import { Pagination } from '@/components/pagination'
 import { StatusBadge } from '@/components/status-badge'
 import { SummaryStat } from '@/components/summary-stat'
 import { LinkButton } from '@/components/link-button'
@@ -19,11 +19,13 @@ import {
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
 import { formatDate, formatNumber, formatQ } from '@/lib/format'
-import { GOOD_RECORD_DAYS } from '@/lib/ledger'
-import { daysSincePayment, listCredits } from '@/lib/queries/credits'
+import { firstParam, parsePage } from '@/lib/pagination'
+import { creditPortfolio, listCreditsPage } from '@/lib/queries/credits'
 import { requireAdmin } from '@/lib/session'
 
-export default async function CreditsPage({ params }: PageProps<'/[locale]'>) {
+const STATUSES = ['active', 'cancelled', 'badRecord'] as const
+
+export default async function CreditsPage({ params, searchParams }: PageProps<'/[locale]'>) {
   const { locale } = await params
   setRequestLocale(locale)
   await requireAdmin()
@@ -32,14 +34,17 @@ export default async function CreditsPage({ params }: PageProps<'/[locale]'>) {
   const tc = await getTranslations('common')
   const tStatus = await getTranslations('status')
 
-  const rows = await listCredits({ collectorId: null })
-  const active = rows.filter((row) => row.cancelledAt === null)
-  const atRisk = active.filter((row) => daysSincePayment(row) > GOOD_RECORD_DAYS)
+  const query = await searchParams
+  const scope = { collectorId: null }
+  const status = STATUSES.find((value) => value === firstParam(query.status))
+  const filter = { search: firstParam(query.q), status }
 
-  // `SUM(total) WHERE cancel = 0` and its balance counterpart — the two figures
-  // `index.php` put at the top of the legacy dashboard.
-  const capital = active.reduce((sum, row) => sum + row.principal, 0)
-  const outstanding = active.reduce((sum, row) => sum + row.outstanding, 0)
+  const [result, portfolio] = await Promise.all([
+    listCreditsPage(scope, filter, parsePage(query.page)),
+    // The tiles describe the live portfolio, not the filtered table.
+    creditPortfolio(scope),
+  ])
+  const rows = result.rows
 
   return (
     <AppShell title={t('title')}>
@@ -61,30 +66,31 @@ export default async function CreditsPage({ params }: PageProps<'/[locale]'>) {
       />
 
       <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <SummaryStat label={t('summary.capital')} value={formatQ(capital, locale)} />
-        <SummaryStat label={t('summary.outstanding')} value={formatQ(outstanding, locale)} />
-        <SummaryStat label={t('summary.active')} value={formatNumber(active.length, locale)} />
+        <SummaryStat label={t('summary.capital')} value={formatQ(portfolio.capital, locale)} />
+        <SummaryStat label={t('summary.outstanding')} value={formatQ(portfolio.outstanding, locale)} />
+        <SummaryStat label={t('summary.active')} value={formatNumber(portfolio.active, locale)} />
         <SummaryStat
           label={t('summary.atRisk')}
-          value={formatNumber(atRisk.length, locale)}
-          tone={atRisk.length > 0 ? 'danger' : 'default'}
+          value={formatNumber(portfolio.atRisk, locale)}
+          tone={portfolio.atRisk > 0 ? 'danger' : 'default'}
         />
       </div>
 
       <Card className="py-0">
-        <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center">
-          <SearchInput placeholder={t('searchPlaceholder')} />
-          <SelectField
-            size="default"
-            className="h-9 min-w-40"
-            options={[
-              { value: 'all', label: t('allStatuses') },
-              { value: 'active', label: tStatus('active') },
-              { value: 'cancelled', label: tStatus('cancelled') },
-              { value: 'badRecord', label: tStatus('badRecord') },
-            ]}
-          />
-        </div>
+        <ListFilters
+          searchPlaceholder={t('searchPlaceholder')}
+          selects={[
+            {
+              name: 'status',
+              allValue: 'all',
+              className: 'h-9 min-w-40',
+              options: [
+                { value: 'all', label: t('allStatuses') },
+                ...STATUSES.map((value) => ({ value, label: tStatus(value) })),
+              ],
+            },
+          ]}
+        />
 
         <CardContent className="px-0">
           <div className="overflow-x-auto">
@@ -142,6 +148,8 @@ export default async function CreditsPage({ params }: PageProps<'/[locale]'>) {
               </TableBody>
             </Table>
           </div>
+
+          <Pagination result={result} searchParams={query} locale={locale} />
         </CardContent>
       </Card>
     </AppShell>

@@ -585,5 +585,12 @@
       "count": "Pagos",
       "empty": "Aún no ha registrado pagos hoy."
     }
+  },
+  "pagination": {
+    "showing": "Mostrando {from}–{to} de {total}",
+    "empty": "Sin resultados",
+    "page": "Página {page} de {pageCount}",
+    "previous": "Anterior",
+    "next": "Siguiente"
   }
 }

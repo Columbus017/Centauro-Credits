@@ -497,12 +497,15 @@ export async function submitDailyClose(
 
   try {
     await db.$transaction(async (tx) => {
-      const existing = await tx.dailyClose.findUnique({
-        where: { collectorId_closeDate: { collectorId, closeDate: isoDate(closeDate) } },
+      const existing = await tx.dailyClose.findFirst({
+        where: { collectorId, closeDate: isoDate(closeDate) },
+        select: { id: true },
       })
-      // The `UNIQUE (collector_id, close_date)` Phase 2 added, reported as a
-      // message instead of a constraint violation. The legacy app had neither
-      // and double-counted the day on every dashboard.
+      // **This is now the only thing stopping a duplicate close.** The
+      // database constraint Phase 2 added was dropped when the real dump
+      // turned out to hold 11 legitimate historical duplicates — see the note
+      // on `DailyClose` in `prisma/schema.prisma`. The legacy app had no check
+      // at either level and double-counted the day on every dashboard.
       if (existing) throw new ActionError('duplicateClose')
 
       await tx.dailyClose.create({

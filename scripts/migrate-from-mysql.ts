@@ -16,13 +16,21 @@
  *   1. **Primary keys are preserved.** Card numbers, printed receipts and
  *      years of paper reference the original ids.
  *   2. **Nothing is silently corrected.** Every recomputed running balance is
- *      compared against the stored one; mismatches are pre-existing corruption
- *      in float columns and are reported, never overwritten. The same goes for
- *      orphaned foreign keys and duplicate daily closes — each aborts the run
- *      with a report unless you explicitly opt in to a documented compromise.
+ *      compared against the stored one and every mismatch is reported. The
+ *      money columns are `decimal(9,2)`, so those are not rounding drift —
+ *      they are places where the old PHP's arithmetic and its own ledger
+ *      disagree. Orphaned foreign keys and duplicate usernames stop the run
+ *      with a report unless you opt in to a documented compromise.
+ *
+ * What *is* derived rather than copied: a ledger entry's running balance, and
+ * a credit's `cancelled_at` / `bad_record`. The legacy equivalents are
+ * hand-maintained in four PHP files that disagree, and a status that does not
+ * follow from its own entries is not worth carrying into a new database. Every
+ * difference is listed in the report.
  */
 
 import 'dotenv/config'
+import { isUtf8 } from 'node:buffer'
 import mysql from 'mysql2/promise'
 
 import { isoDate, resetIdSequences } from '@/lib/db-utils'
@@ -35,6 +43,7 @@ import {
 } from '@/lib/ledger'
 import { createPrismaClient } from '@/lib/prisma-client'
 import type { PrismaClient } from '@/lib/generated/prisma/client'
+import { flag, money, type LegacyFlag, type LegacyMoney } from './legacy-values'
 
 // ------------------------------------------------------------------- legacy
 
@@ -50,7 +59,7 @@ type OldCollector = {
   mobile: string | null
   DPI: string | null
   birthDate: string | null
-  state: number | null
+  state: LegacyFlag
 }
 type OldRoute = {
   idRoute: number
@@ -58,7 +67,7 @@ type OldRoute = {
   routeName: string | null
   details: string | null
   _idCollector: number | null
-  state: number | null
+  state: LegacyFlag
 }
 type OldCustomer = {
   idCustomer: number
@@ -70,7 +79,7 @@ type OldCustomer = {
   address: string | null
   mobile: string | null
   mobile2: string | null
-  state: number | null
+  state: LegacyFlag
 }
 type OldCredit = {
   idCredit: number
@@ -78,27 +87,27 @@ type OldCredit = {
   _idCollector: number | null
   code: string | null
   dateStart: string | null
-  total: number | null
-  cancel: number | null
-  record: number | null
+  total: LegacyMoney
+  cancel: LegacyFlag
+  record: LegacyFlag
 }
 type OldBalance = {
   idBalance: number
   _idCredit: number | null
   date: string | null
-  balpay: number | null
-  amount: number | null
-  balance: number | null
-  state: number | null
+  balpay: LegacyFlag
+  amount: LegacyMoney
+  balance: LegacyMoney
+  state: LegacyFlag
 }
 type OldIncome = {
   idIncome: number
   _idCollector: number | null
   date: string | null
-  incomes: number | null
-  base: number | null
-  exes: number | null
-  credits: number | null
+  incomes: LegacyMoney
+  base: LegacyMoney
+  exes: LegacyMoney
+  credits: LegacyMoney
 }
 type OldUser = {
   idUser: number
@@ -108,7 +117,7 @@ type OldUser = {
   userName: string | null
   passWord: string | null
   permissions: number | null
-  state: number | null
+  state: LegacyFlag
 }
 
 type Legacy = {
@@ -146,8 +155,8 @@ function block(summary: string) {
   blockers.push(summary)
 }
 
-/** `state = 1` is the legacy soft-delete flag; anything else is live. */
-const isActive = (state: number | null) => state !== 1
+/** The legacy `state` flag is *inverted*: 1 means retired, 0 means live. */
+const isActive = (state: LegacyFlag) => !flag(state)
 
 /** The legacy app writes `0` where it means "no relation". */
 function optionalId(value: number | null | undefined) {
@@ -164,11 +173,6 @@ function requireDate(value: string | null | undefined, context: string) {
   const parsed = optionalDate(value)
   if (!parsed) throw new Error(`${context}: missing a date that cannot be defaulted`)
   return parsed
-}
-
-/** Floats in, fixed-point strings out — what a `Decimal` column wants. */
-function money(value: number | null | undefined) {
-  return ((value ?? 0)).toFixed(2)
 }
 
 const blankToNull = (value: string | null | undefined) =>
@@ -196,8 +200,50 @@ async function insertInBatches<T>(
 
 // -------------------------------------------------------------------- read
 
+/**
+ * String columns, decoded from the bytes actually stored rather than from
+ * MySQL's idea of what they mean.
+ *
+ * Every legacy table is `CHARSET=latin1`, but the PHP connected with
+ * `mysqli_set_charset($conn, "utf8")` — so what physically sits in those
+ * columns is UTF-8 bytes that MySQL believes are latin1. `Ñ` is stored as
+ * `C3 91`, and MySQL, asked for utf8, helpfully "converts" it again and hands
+ * back `C3 83 E2 80 98` — `Ã‘`. Every accented Guatemalan surname arrives
+ * mojibake, and it is the kind of corruption nobody notices until a client
+ * complains about their name on a receipt.
+ *
+ * `charset: 'binary'` stops MySQL transcoding, so the raw stored bytes arrive
+ * and can be read as the UTF-8 they always were. All 13 non-ASCII values in
+ * the real dump are valid UTF-8 this way; anything that is not gets read as
+ * latin1 and reported, because a name is not something to guess at silently.
+ */
+function decodeText(field: { type: string; name: string; table: string; buffer: () => Buffer | null }) {
+  const buf = field.buffer()
+  if (buf === null) return null
+  if (isUtf8(buf)) return buf.toString('utf8')
+
+  const asLatin1 = buf.toString('latin1')
+  report(
+    `${field.table}.${field.name}: not valid UTF-8, read as latin1 → ${JSON.stringify(asLatin1)}`,
+  )
+  return asLatin1
+}
+
 async function readLegacy(url: string): Promise<Legacy> {
-  const conn = await mysql.createConnection({ uri: url, dateStrings: true })
+  const conn = await mysql.createConnection({
+    uri: url,
+    dateStrings: true,
+    charset: 'binary',
+    typeCast: (field, next) => {
+      if (field.type === 'VAR_STRING' || field.type === 'STRING' || field.type === 'BLOB') {
+        return decodeText(field)
+      }
+      // Everything else keeps mysql2's own handling: `bit(1)` stays a Buffer
+      // for `flag()`, `decimal` stays a string for `money()`, and `DATE` stays
+      // a `YYYY-MM-DD` string because of `dateStrings`.
+      return next()
+    },
+  })
   try {
     const table = async <T>(name: string, orderBy: string) => {
       const [rows] = await conn.query(`SELECT * FROM \`${name}\` ORDER BY ${orderBy}`)
@@ -347,6 +393,11 @@ function auditLedger(legacy: Legacy) {
   }
 
   const recomputed = new Map<number, number>() // idBalance → running balance in cents
+  // idCredit → the state its own entries imply. The write path uses this
+  // rather than the stored `cancel` / `record` flags: those are maintained by
+  // hand in four PHP files and 23 of them contradict their own ledger, while
+  // the running balances beside them are already imported recomputed.
+  const payoff = new Map<number, ReturnType<typeof payoffState>>()
   let balanceMismatches = 0
   let originationMismatches = 0
   let flagMismatches = 0
@@ -362,7 +413,7 @@ function auditLedger(legacy: Legacy) {
 
     const expectedOrigination = payoffTotalCents(credit.total ?? 0, DEFAULT_INTEREST_RATE)
     const origination = rows[0]
-    if (origination.balpay === 0 && toCents(origination.amount ?? 0) !== expectedOrigination) {
+    if (!flag(origination.balpay) && toCents(origination.amount ?? 0) !== expectedOrigination) {
       originationMismatches += 1
       report(
         `credit ${credit.idCredit}: origination is ${money(origination.amount)} but ` +
@@ -372,9 +423,9 @@ function auditLedger(legacy: Legacy) {
 
     const ledger = rows.map((row) => ({
       id: row.idBalance,
-      kind: (row.balpay === 1 ? 'payment' : 'origination') as 'payment' | 'origination',
+      kind: (flag(row.balpay) ? 'payment' : 'origination') as 'payment' | 'origination',
       amountCents: toCents(row.amount ?? 0),
-      voided: row.state === 1,
+      voided: flag(row.state),
       entryDate: (row.date ?? '').slice(0, 10),
     }))
 
@@ -400,17 +451,18 @@ function auditLedger(legacy: Legacy) {
     const startDate = (credit.dateStart ?? '').slice(0, 10)
     if (startDate) {
       const state = payoffState(startDate, ledger)
-      if (state.paidOff !== (credit.cancel === 1)) {
+      payoff.set(credit.idCredit, state)
+      if (state.paidOff !== flag(credit.cancel)) {
         flagMismatches += 1
         report(
-          `credit ${credit.idCredit}: cancel = ${credit.cancel} but the ledger says ` +
+          `credit ${credit.idCredit}: cancel = ${flag(credit.cancel)} but the ledger says ` +
             `${state.paidOff ? 'paid off' : 'still owing'}`,
         )
       }
-      if (state.paidOff && state.badRecord !== (credit.record === 1)) {
+      if (state.paidOff && state.badRecord !== flag(credit.record)) {
         flagMismatches += 1
         report(
-          `credit ${credit.idCredit}: record = ${credit.record} but payoff took ` +
+          `credit ${credit.idCredit}: record = ${flag(credit.record)} but payoff took ` +
             `${state.badRecord ? 'more' : 'fewer'} than 30 days`,
         )
       }
@@ -419,6 +471,7 @@ function auditLedger(legacy: Legacy) {
 
   return {
     recomputed,
+    payoff,
     balanceMismatches,
     originationMismatches,
     flagMismatches,
@@ -433,6 +486,7 @@ async function write(
   legacy: Legacy,
   migratable: Migratable,
   recomputed: Map<number, number>,
+  payoff: Map<number, ReturnType<typeof payoffState>>,
   voidedAt: Date,
 ) {
   const collectorIds = new Set(legacy.collector.map((r) => r.idCollector))
@@ -497,19 +551,17 @@ async function write(
     (data) => prisma.customer.createMany({ data }),
   )
 
-  // A cancelled credit needs the date it was cancelled; the old schema stored
-  // only the flag, so take the date of its last live ledger row.
-  const lastLiveEntryDate = new Map<number, string>()
-  for (const entry of legacy.balance) {
-    if (entry.state === 1) continue
-    const creditId = entry._idCredit ?? -1
-    const date = (entry.date ?? '').slice(0, 10)
-    if (date) lastLiveEntryDate.set(creditId, date)
-  }
-
+  // `cancelled_at` and `bad_record` are **derived**, not carried across.
+  //
+  // The old schema stored only a hand-maintained flag and no cancellation
+  // date, and `BLL/*.php` set them in four places that disagreed — 23 credits
+  // in the real dump contradict their own entries, including eight paid off
+  // but still marked active and one marked cancelled with money owing. Every
+  // contradiction is in the report above; what lands in the database is what
+  // the ledger says, computed by the same `payoffState()` the app itself uses.
   await insertInBatches(
     migratable.credits.map((row) => {
-        const cancelledOn = lastLiveEntryDate.get(row.idCredit)
+        const state = payoff.get(row.idCredit)
         return {
           id: row.idCredit,
           customerId: row._idCustomer!,
@@ -518,8 +570,8 @@ async function write(
           startDate: requireDate(row.dateStart, `credit ${row.idCredit}`),
           principal: money(row.total),
           interestRate: DEFAULT_INTEREST_RATE.toFixed(4),
-          cancelledAt: row.cancel === 1 && cancelledOn ? isoDate(cancelledOn) : null,
-          badRecord: row.record === 1,
+          cancelledAt: state?.cancelledAt ? isoDate(state.cancelledAt) : null,
+          badRecord: state?.badRecord ?? false,
       }
     }),
     (data) => prisma.credit.createMany({ data }),
@@ -529,7 +581,7 @@ async function write(
     migratable.balance.map((row) => ({
         id: row.idBalance,
         creditId: row._idCredit!,
-        kind: (row.balpay === 1 ? 'payment' : 'origination') as 'payment' | 'origination',
+        kind: (flag(row.balpay) ? 'payment' : 'origination') as 'payment' | 'origination',
         entryDate: requireDate(row.date, `balance ${row.idBalance}`),
         amount: money(row.amount),
         // The recomputed value, not the stored one: a running balance that
@@ -538,7 +590,7 @@ async function write(
         runningBalance: ((recomputed.get(row.idBalance) ?? 0) / 100).toFixed(2),
         // The legacy schema recorded no void timestamp, so migrated voids all
         // carry the moment of the migration itself.
-        voidedAt: row.state === 1 ? voidedAt : null,
+        voidedAt: flag(row.state) ? voidedAt : null,
       })),
     (data) => prisma.ledgerEntry.createMany({ data }),
   )
@@ -683,21 +735,24 @@ async function main() {
   let keptCloses = legacy.income
   if (duplicateCloses.length) {
     if (!MERGE_DUPLICATE_CLOSES) {
-      console.error(
-        `\n${duplicateCloses.length} collector-day(s) have more than one daily close. ` +
-          'The new schema forbids that (the old one double-counted them):',
+      // Reported, not blocked. Phase 2 forbade duplicate closes outright; the
+      // real dump then produced 11 of them across five years, only one of
+      // which is an identical double-submission, and collapsing the rest would
+      // have discarded Q71,725.00 of recorded collections. The unique index is
+      // gone and these import verbatim — see the `DailyClose` note in
+      // `prisma/schema.prisma`. `--merge-duplicate-closes` still collapses
+      // them for anyone who wants the old behaviour.
+      console.log(
+        `\n${duplicateCloses.length} collector-day(s) have more than one daily close, ` +
+          'imported as they stand:',
       )
       for (const group of duplicateCloses.slice(0, 20)) {
         const ids = group.map((row) => row.idIncome).join(', ')
-        console.error(
+        console.log(
           `  collector ${group[0]._idCollector} on ${(group[0].date ?? '').slice(0, 10)}: income ${ids}`,
         )
       }
-      console.error(
-        '\nDecide which row is real and remove the others from the dump copy, or re-run ' +
-          'with --merge-duplicate-closes to keep the highest id of each group.',
-      )
-      block(`${duplicateCloses.length} duplicate daily close(s)`)
+      report(`${duplicateCloses.length} collector-day(s) with more than one daily close`)
     } else {
       const dropped = new Set<number>()
       for (const group of duplicateCloses) {
@@ -766,7 +821,14 @@ async function main() {
     const voidedAt = new Date()
     await prisma.$transaction(
       async (tx) => {
-        await write(tx as unknown as PrismaClient, legacy, migratable, audit.recomputed, voidedAt)
+        await write(
+          tx as unknown as PrismaClient,
+          legacy,
+          migratable,
+          audit.recomputed,
+          audit.payoff,
+          voidedAt,
+        )
       },
       // Prisma's default interactive-transaction budget is five seconds; a
       // decade of ledger rows takes longer than that, and a partial import is
