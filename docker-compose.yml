@@ -55,6 +55,12 @@ services:
       target: migrator
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      # The legacy import's source, and the one variable here that is
+      # deliberately *not* required: it is set only for the length of the
+      # migration and unset again afterwards. `prisma migrate deploy` never
+      # reads it, and the ETL fails with a clear message when it is empty — so
+      # a normal deploy must not be held hostage to it.
+      MYSQL_URL: ${MYSQL_URL:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -114,6 +120,63 @@ services:
       postgres:
         condition: service_healthy
     networks: [internal, dokploy-network]
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # mysql-legacy — the ETL's source, alive only for the migration.
+  # -------------------------------------------------------------------------
+  #
+  # `scripts/migrate-from-mysql.ts` reads MySQL. Restoring the dump *here*, on
+  # the new host, is what keeps the cutover from needing an SSH tunnel between
+  # two machines inside the downtime window: `migrate` reaches this service by
+  # name over `internal`.
+  #
+  # It exists under a profile, so it starts only with `--profile etl` and no
+  # deploy ever brings it up. It is on `internal` alone and publishes no port:
+  # nothing outside the compose network can reach it, which is the whole reason
+  # a scratch password below is acceptable and the production ones are not.
+  #
+  # **It holds the entire business in plaintext.** Take it down the moment the
+  # import is verified — see the cutover section of the README.
+  mysql-legacy:
+    image: mysql:5.7
+    profiles: [etl]
+    # MySQL 5.7 was never published for arm64. On an amd64 host this pin is a
+    # no-op; on Apple Silicon it runs under emulation, slow but adequate for a
+    # one-shot restore.
+    platform: linux/amd64
+    # The legacy book carries zero dates (`0000-00-00`) that 5.7's default
+    # strict mode refuses to insert. The dump has to land exactly as it was
+    # taken, warts included — the ETL is what interprets it.
+    command: --sql-mode=""
+    environment:
+      # A scratch credential for a container with no published port, on an
+      # internal network, that is destroyed at the end of the window. Override
+      # it in the environment if you would rather; the value only ever travels
+      # between two containers on the same host.
+      MYSQL_ROOT_PASSWORD: ${LEGACY_MYSQL_PASSWORD:-legacy-etl-scratch}
+      # The dump issues its own `CREATE DATABASE localdb` and `USE localdb`;
+      # this only makes the database exist before it is restored.
+      MYSQL_DATABASE: localdb
+    # No volume, on purpose. The data directory is anonymous, so it dies with
+    # the container — `docker compose --profile etl rm -sfv mysql-legacy` is
+    # the whole cleanup, and there is no named volume anyone can confuse with
+    # `postgres_data`. Never reach for `down -v` here: it would take the
+    # production database with it.
+    healthcheck:
+      # Over TCP rather than the socket: during initialisation MySQL runs a
+      # temporary socket-only server, and a socket check reports healthy while
+      # the dump would still be refused.
+      test:
+        [
+          'CMD-SHELL',
+          'mysql -h 127.0.0.1 -u root -p"$$MYSQL_ROOT_PASSWORD" -e "SELECT 1" >/dev/null 2>&1',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    networks: [internal]
     restart: unless-stopped
 
 networks:

@@ -2,8 +2,8 @@
 
 **Status:** **Phases 0–8 are merged.** The application is feature-complete, containerised, and has been run against the real book — 4,737 credits and 61,868 ledger entries imported, reconciled and paged.
 
-**What is left is Phase 9: go-live.** Nothing has been deployed to a server, and the ETL has only been rehearsed locally. The remaining work is one deploy to a new host, one dress rehearsal on it, and one cutover window. See [Phase 9](#-phase-9--go-live-next) for the sequence and [§8](#8-next-steps-at-a-glance) for the short version.
-**Last updated:** 2026-08-16
+**What is left is Phase 9: go-live.** Its code has landed — the `etl`-profile MySQL, `MYSQL_URL`, and the cutover runbook — and the whole import path has been rehearsed against the production compose file locally: dump restored, ETL run through the `migrate` container over the Docker network, every figure reconciled, `--force` re-import proven. **Nothing has been deployed to a server**, because there is no host yet. The remaining work is one deploy to a new host, one dress rehearsal on it, and one cutover window. See [Phase 9](#-phase-9--go-live-in-progress) for the sequence and [§8](#8-next-steps-at-a-glance) for the short version.
+**Last updated:** 2026-08-17
 
 ---
 
@@ -54,7 +54,7 @@ All work happens in `centauro_credits/`. **Each phase gets its own branch, cut f
 | 6 | `phase-6-deployment` | ✅ merged (PR #5) |
 | 7 | `phase-7-legacy-import` | ✅ merged (PR #6) |
 | 8 | — | ✅ merged (PR #6) — **paging shipped on the phase-7 branch**, not one of its own: it was the blocker that phase's data uncovered, and splitting it would have meant merging a book nobody could open |
-| 9 | `phase-9-go-live` | ⬜ next |
+| 9 | `phase-9-go-live` | 🟡 in progress — the code is done and the import path is rehearsed locally; the deploy needs a host |
 
 Protocol: `git checkout main && git pull && git checkout -b phase-N-<name>` → implement → commit in logical chunks (not one giant commit) → report the diff summary and stop for review → on approval, merge and cut the next branch. Phase 4 may warrant sub-branches per vertical slice.
 
@@ -346,17 +346,27 @@ The blocker Phase 7 uncovered. Measured on a production build against the real b
 **Not paged, on purpose:** the report listings. They are bounded by one collector or one date range and are meant to be printed whole — paging a report would defeat it.
 
 
-### ⬜ Phase 9 — Go-live (next)
+### 🟡 Phase 9 — Go-live (in progress)
 
-Everything below this line has never touched a server. The application is done; what remains is an operation, and it runs in a fixed order: build the host, rehearse on it, cut over, clean up.
+The application is done; what remains is an operation, and it runs in a fixed order: build the host, rehearse on it, cut over, clean up. **The code that operation needs has landed and the import path is rehearsed. Nothing has been deployed, because there is no host yet.**
 
 **Constraints, as settled with the owner:** the legacy app is live but lightly used, the new stack goes on a **different host**, database access to the old host is not yet established, and a **planned downtime window** is acceptable.
 
-#### The code this still needs (small)
+#### ✅ The code (done, 1 commit)
 
-1. **`docker-compose.yml`** — a `mysql-legacy` service under an `etl` profile: `mysql:5.7`, on the `internal` network only, no published port. It is how the dump gets restored *on the new host* so `migrate` can read it over the Docker network. Without it the cutover import needs an SSH tunnel between two hosts, inside the window. Mirrors the `etl` profile already in `docker-compose.dev.yml`.
-2. **`.env.production.example`** — `MYSQL_URL` pointing at that service, marked as set only during the migration and unset afterwards.
-3. **`README.md`** — a cutover section: the dump command, the import sequence, the verification list, and the rollback.
+1. **`docker-compose.yml`** — a `mysql-legacy` service under an `etl` profile: `mysql:5.7`, on the `internal` network only, no published port. It is how the dump gets restored *on the new host* so `migrate` can read it over the Docker network. Without it the cutover import needs an SSH tunnel between two hosts, inside the window. `migrate` gained `MYSQL_URL` — it had none, so the import commands the Phase 6 README documented could not in fact have worked.
+2. **`.env.production.example`** — `MYSQL_URL` and `LEGACY_MYSQL_PASSWORD`, both commented out: they are set for the length of the migration and removed again.
+3. **`README.md`** — the import section rewritten around the new service, and a cutover section: the dump command, the window step by step, the rollback, and the cleanup.
+
+**Three deliberate departures from the file's own rules:**
+
+- **`MYSQL_URL` is `${MYSQL_URL:-}`, not `${MYSQL_URL:?…}`.** Every other secret is required so a missing one fails the deploy. This one is absent for all but a few hours of the system's life, and `prisma migrate deploy` — what the service actually runs on every deploy — never reads it. The ETL fails with its own clear message when it is empty.
+- **The scratch MySQL password has a committed default.** Same reasoning inverted: `${VAR:?…}` is interpolated across the *whole* file before profiles are filtered, so a required variable on a profiled service would break every ordinary deploy. `legacy-etl-scratch` only ever travels between two containers on one host, over a network with no published port, in a container that is destroyed at the end of the window — and it is overridable.
+- **No named volume for it.** Its data directory is anonymous, so `docker compose --profile etl rm -sfv mysql-legacy` is the entire cleanup and there is no volume anyone can confuse with `postgres_data`. This replaces the `down -v` the plan previously called for in Stage D, which would have taken the production database with it. Verified: removing the container dropped exactly one volume and left `postgres_data` intact.
+
+**Rehearsed locally against `docker-compose.yml` itself** — the production file, not the dev one — with the real `db.sql` and the README's commands exactly as written. `db.sql` restored into `mysql-legacy` in **4 seconds**; the dry run reported the same 34 findings Phase 7 recorded and no blockers; the import ran through `docker compose run --rm migrate` in **10 seconds**, over the internal network, reconciling all eight row counts and `SUM(principal)` at 10,545,464.13. Read back: 57,131 payments against 4,737 originations summing to 23,575,946.25, 249 voided rows, 6,197,490.00 over 1,426 closes, 10 inactive clients, 1 inactive collector, 4,386 cancelled and 2,974 bad records — every Phase 7 figure, reproduced through the deployment path instead of a developer's machine. `UÑAS` and `BOLAÑOS GRAMAJO` read correctly out of Postgres. A second import was **refused** into the non-empty database and then wiped and re-imported with `--force` in 10 seconds, which is the cutover's step 3 and had never been run. The app served `/api/health` 200 and a login panel reading **Q737 k** and **7.1%** off the migrated book; removing `mysql-legacy` and re-running `up -d` left `migrate` reporting *No pending migrations*.
+
+**Still not verified, and only a host can:** Traefik, TLS, `X-Forwarded-Host`, an amd64 build, and Dokploy's own behaviour. What the rehearsal removes is the risk that the *import* misbehaves inside the window; it says nothing about the deploy in front of it.
 
 #### Stage A — Build the new host (touches nothing live)
 
@@ -372,7 +382,7 @@ Then verify the half that has never been tested: `/api/health` 200 over HTTPS, t
 
 #### Stage B — Dress rehearsal on the real host
 
-Restore the existing `db.sql` into the `etl`-profile MySQL on the new host and run the import there. Then sign in as a real user — migrated `$2y$` hashes mean existing passwords work unchanged — and walk the app: a credit's ledger, a payment, a daily close, a report PDF.
+Restore the existing `db.sql` into the `etl`-profile MySQL on the new host and run the import there — the sequence in the README's *Importing the legacy MySQL data*, which is the one already rehearsed locally. Then sign in as a real user — migrated `$2y$` hashes mean existing passwords work unchanged — and walk the app: a credit's ledger, a payment, a daily close, a report PDF.
 
 This is also where the **side-by-side parity diff** finally happens: the same figures out of `centauro_old` and out of this app, on the same data. It is the last outstanding item from Phase 4.
 
@@ -386,7 +396,7 @@ Note the legacy app's dashboard totals and two or three credit balances first, t
 
 1. **Freeze.** On the old host, `docker stop centauro-web`. The app is unreachable; MySQL stays up and readable. Nobody can write.
 2. **Final dump**, copied to the new host.
-3. **Import** with `--force` to wipe the rehearsal data. One transaction with a 30-minute budget: it lands whole or not at all. The rehearsal import took **8 seconds**.
+3. **Import** with `--force` to wipe the rehearsal data. One transaction with a 30-minute budget: it lands whole or not at all. Restore plus `--force` import measured **15 seconds** end to end locally.
 4. **Verify** against the figures from step 0 and the script's own reconciliation. Sign in as an admin and as a collector.
 5. **`pg_dump` immediately**, before the first real write, so there is a clean restore point.
 6. **Switch DNS** to the new host and move the real domain onto the app in Dokploy.
@@ -397,7 +407,7 @@ Note the legacy app's dashboard totals and two or three credit balances first, t
 #### Stage D — Afterwards
 
 - Delete every copy of the dump, from both hosts and any laptop. `db.sql` is the whole business in plaintext.
-- `docker compose --profile etl down -v` to remove the scratch MySQL.
+- `docker compose --profile etl rm -sfv mysql-legacy` to remove the scratch MySQL and its data, and unset `MYSQL_URL`. **Not `down -v`** — that removes the project's volumes, `postgres_data` among them.
 - Retire the temporary subdomain.
 - **Schedule the backup.** The README documents a `pg_dump` line that nobody runs; it is now the only copy of the business.
 - Rotate the legacy credentials anywhere else they were used.
@@ -434,6 +444,7 @@ Note the legacy app's dashboard totals and two or three credit balances first, t
 - Phase 6 added `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `.env.production.example`, `app/api/health/route.ts` and a `README.md` that is the deploy runbook
 - Phase 7 added `scripts/legacy-values.ts` (+ tests) — the `bit(1)` / `decimal(9,2)` coercions the whole import rests on — and the `drop_daily_close_unique` migration
 - Phase 8 added `lib/pagination.ts` (+ tests) and `components/{pagination,list-filters}.tsx`. `components/search-input.tsx` is now unused by the paged screens; `ListFilters` replaced it
+- Phase 9 added the `etl`-profile `mysql-legacy` service and `MYSQL_URL` on `migrate` in `docker-compose.yml`, the two commented-out migration variables in `.env.production.example`, and the import + cutover runbook in `README.md` — the operational half of the go-live
 - **`../db.sql`** — the real dump, outside the repo and gitignored by being outside it. It is the whole business in plaintext: not a repository artefact, and to be deleted once the migration is done
 
 ---
@@ -456,7 +467,7 @@ Note the legacy app's dashboard totals and two or three credit balances first, t
 
 **Phase 8 (done against the real dump, locally):** every filter and page reconciled to SQL — the three credit statuses must still partition the book exactly, and the summary tiles must not move when the table is filtered. Worth repeating on any list change: compare a tile against its `SUM` in SQL, and confirm a page past the end clamps rather than rendering empty.
 
-**Phase 9 (not started):** see the stages above. The verification that matters most is the one that has never run — a real sign-in through Traefik, and the side-by-side diff against the legacy app on the same data.
+**Phase 9 (code done; the operation has not started):** the import path is verified end to end against the production compose file locally — restore, `--dry-run`, import, read-back, and the `--force` re-import that the cutover depends on. Repeat all of it on the host at Stage B, since a rehearsal on a laptop proves the commands and not the machine. The verifications that matter most are still the ones that have never run: a real sign-in through Traefik, and the side-by-side diff against the legacy app on the same data.
 
 **Suggested test setup** — done: Vitest covers the ledger math (`recalculateBalances`, payoff/`bad_record` detection, void-cascade), the route policy, the daily-close formula and the clock.
 
@@ -489,11 +500,11 @@ Note the legacy app's dashboard totals and two or three credit balances first, t
 
 ## 8. Next steps at a glance
 
-Everything in §3 is merged. This is what is left, in order — the first three items are code and can be done any time; the rest is an operation with a fixed sequence.
+Everything in §3 is merged except the Phase 9 branch, whose code is done. What is left is an operation with a fixed sequence, and every step of it needs a host.
 
 | # | Step | Where | Blocked on |
 | --- | --- | --- | --- |
-| 1 | Add the `etl`-profile `mysql-legacy` service to `docker-compose.yml`, `MYSQL_URL` to `.env.production.example`, and a cutover section to `README.md` | repo | nothing |
+| 1 | ~~Add the `etl`-profile `mysql-legacy` service, `MYSQL_URL`, and the cutover runbook~~ — done, and the import path rehearsed locally against the production compose file | repo | ✅ |
 | 2 | Provision the new host (Docker, ≥4 GB RAM) and install Dokploy | new host | a host |
 | 3 | Generate fresh secrets; set them in Dokploy's Environment tab | Dokploy | step 2 |
 | 4 | Deploy to a **temporary subdomain**; verify health, TLS, and `X-Forwarded-Host` | Dokploy | step 3 |
