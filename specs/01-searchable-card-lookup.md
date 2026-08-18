@@ -1,6 +1,6 @@
 # SPEC 01 — Searchable card-number and client lookup
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** —
 > **Date:** 2026-08-17
 > **Objective:** Replace the blind Base UI Select typeahead with a searchable combobox on every long option list, so the operator sees what they are typing when looking up a card number or a client.
