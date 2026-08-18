@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useMemo, useState } from 'react'
+import { useActionState, useMemo, useRef, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 
@@ -62,6 +62,12 @@ export function DailyCloseForm({
   // not the operator asking for a payment row.
   const [focusKey, setFocusKey] = useState<number | null>(null)
   const [collectorId, setCollectorId] = useState(collectors[0]?.value ?? '')
+
+  const collectorFieldRef = useRef<HTMLElement>(null)
+  const closeDateRef = useRef<HTMLInputElement>(null)
+  const baseRef = useRef<HTMLInputElement>(null)
+  const disbursedRef = useRef<HTMLInputElement>(null)
+  const surplusRef = useRef<HTMLInputElement>(null)
 
   // Only the chosen collector's book: the action refuses a credit from anyone
   // else's round, and offering one the server will reject is a trap.
@@ -156,6 +162,7 @@ export function DailyCloseForm({
                 name="collectorId"
                 className="h-10 w-full"
                 options={collectors}
+                ref={collectorFieldRef}
                 onValueChange={(value) => {
                   setCollectorId(value)
                   // The previous rows point at another collector's credits.
@@ -173,6 +180,7 @@ export function DailyCloseForm({
                 className="h-10"
                 defaultValue={today}
                 aria-invalid={invalid(state, 'closeDate')}
+                ref={closeDateRef}
               />
               <FieldError state={state} field="closeDate" />
             </FormField>
@@ -257,6 +265,7 @@ export function DailyCloseForm({
                 className="h-10 text-right font-mono"
                 value={base}
                 onChange={(event) => setBase(event.target.value)}
+                ref={baseRef}
               />
             </FormField>
 
@@ -275,6 +284,7 @@ export function DailyCloseForm({
                 className="h-10 text-right font-mono"
                 value={disbursed}
                 onChange={(event) => setDisbursed(event.target.value)}
+                ref={disbursedRef}
               />
             </FormField>
 
@@ -287,6 +297,7 @@ export function DailyCloseForm({
                 className="h-10 text-right font-mono"
                 value={surplus}
                 onChange={(event) => setSurplus(event.target.value)}
+                ref={surplusRef}
               />
             </FormField>
 
