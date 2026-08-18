@@ -1,6 +1,6 @@
 # SPEC 02 — Sortable table columns
 
-> **Status:** Draft
+> **Status:** Approved
 > **Depends on:** —
 > **Date:** 2026-08-17
 > **Objective:** Add clickable ascending/descending sort to the column headers of the six admin list tables, using URL params so the order is linkable and reloadable like the existing filters.
