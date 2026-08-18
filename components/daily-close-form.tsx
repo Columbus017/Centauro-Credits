@@ -186,6 +186,9 @@ export function DailyCloseForm({
                   setCollectorId(value)
                   // The previous rows point at another collector's credits.
                   setPayments([{ key: nextKey, creditId: '', amount: '' }])
+                  // Same reasoning as `addPayment`: the resulting blank row
+                  // takes the caret, same as one the operator asked for.
+                  setFocusKey(nextKey)
                   setNextKey((key) => key + 1)
                 }}
               />
