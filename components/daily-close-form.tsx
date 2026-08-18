@@ -118,7 +118,15 @@ export function DailyCloseForm({
   }
 
   function removePayment(key: number) {
-    setPayments((current) => current.filter((payment) => payment.key !== key))
+    const removedIndex = payments.findIndex((payment) => payment.key === key)
+    const remaining = payments.filter((payment) => payment.key !== key)
+    setPayments(remaining)
+    // The trash button is disabled at one row, so `remaining` is never empty
+    // here — a neighbor always exists to take focus.
+    const targetKey = remaining[Math.max(0, removedIndex - 1)]?.key
+    if (targetKey !== undefined) {
+      amountInputRefs.current.get(targetKey)?.focus()
+    }
   }
 
   // One JSON field for the repeater, as `newIncome.php` posted it.
