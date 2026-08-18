@@ -235,6 +235,12 @@ export function DailyCloseForm({
                     onChange={(event) =>
                       updatePayment(payment.key, { amount: event.target.value })
                     }
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        addPayment()
+                      }
+                    }}
                     ref={(el) => {
                       if (el) amountInputRefs.current.set(payment.key, el)
                       else amountInputRefs.current.delete(payment.key)
