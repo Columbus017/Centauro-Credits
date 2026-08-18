@@ -1,6 +1,6 @@
 # SPEC 03 — Toast notifications
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** —
 > **Date:** 2026-08-17
 > **Objective:** Add success-confirmation toasts, built on @base-ui/react's already-installed Toast primitive, across every write flow that today gives the operator no feedback that it worked.
@@ -119,36 +119,36 @@ export function ToastRedirectListener(): null
 
 **Toast primitive**
 
-- [ ] The toast provider renders on every page, authenticated and `/login`, with no visible viewport when nothing is active.
-- [ ] A fired toast matches the rest of the UI in both light and dark mode (existing tokens, no hardcoded colors).
-- [ ] A toast auto-dismisses after its default timeout and can also be dismissed via its close control.
+- [x] The toast provider renders on every page, authenticated and `/login`, with no visible viewport when nothing is active.
+- [x] A fired toast matches the rest of the UI in both light and dark mode (existing tokens, no hardcoded colors).
+- [x] A toast auto-dismisses after its default timeout and can also be dismissed via its close control.
 
 **`useActionState` flows**
 
-- [ ] Recording a payment via the "Registrar pago" dialog shows `paymentRecorded`; the dialog still closes as before.
-- [ ] Creating a user via the new-user dialog shows `userCreated`; the dialog still closes as before.
-- [ ] Creating a commerce shows `commerceCreated`.
+- [x] Recording a payment via the "Registrar pago" dialog shows `paymentRecorded`; the dialog still closes as before.
+- [x] Creating a user via the new-user dialog shows `userCreated`; the dialog still closes as before.
+- [x] Creating a commerce shows `commerceCreated`.
 
 **`ActionButton` flows**
 
-- [ ] Activating/deactivating a collector, route, client, commerce, or user shows the matching Activated/Deactivated toast and the status badge updates.
-- [ ] Voiding a payment shows `paymentVoided` and the credit's balance updates.
-- [ ] Deleting a credit lands on `/credits` and shows `creditDeleted`.
+- [x] Activating/deactivating a collector, route, client, commerce, or user shows the matching Activated/Deactivated toast and the status badge updates.
+- [x] Voiding a payment shows `paymentVoided` and the credit's balance updates.
+- [x] Deleting a credit lands on `/credits` and shows `creditDeleted`.
 
 **Redirect flows**
 
-- [ ] Creating/editing a collector, route, client, or credit lands on the destination page with the matching Created/Updated toast, and `?toast=` is gone from the address bar once it fires.
-- [ ] Importing credit history lands on the credit detail page with `creditHistoryImported`.
-- [ ] Submitting a daily close lands on `/daily-close` with `dailyCloseSaved`.
-- [ ] Logging in as an admin (home `/`) shows `loginSuccess`.
-- [ ] Logging in as a collector (home elsewhere) also shows `loginSuccess` — confirms the query string survives `proxy.ts`'s role-home redirect.
+- [x] Creating/editing a collector, route, client, or credit lands on the destination page with the matching Created/Updated toast, and `?toast=` is gone from the address bar once it fires.
+- [x] Importing credit history lands on the credit detail page with `creditHistoryImported`.
+- [x] Submitting a daily close lands on `/daily-close` with `dailyCloseSaved`.
+- [x] Logging in as an admin (home `/`) shows `loginSuccess`.
+- [x] Logging in as a collector (home elsewhere) also shows `loginSuccess` — confirms the query string survives `proxy.ts`'s role-home redirect.
 
 **No regressions**
 
-- [ ] `pnpm test`, `pnpm typecheck`, and `pnpm lint` all pass.
-- [ ] `pnpm build && pnpm start` serves every touched screen without an Auth.js or hydration error.
-- [ ] Both locales show translated toast text, never a raw message key.
-- [ ] Every existing inline error banner (`FormError`/`FieldError`, login's invalid-credentials message) still renders exactly as before — no toast fires on any failure path.
+- [x] `pnpm test`, `pnpm typecheck`, and `pnpm lint` all pass.
+- [x] `pnpm build && pnpm start` serves every touched screen without an Auth.js or hydration error.
+- [x] Both locales show translated toast text, never a raw message key.
+- [x] Every existing inline error banner (`FormError`/`FieldError`, login's invalid-credentials message) still renders exactly as before — no toast fires on any failure path.
 
 ---
 
