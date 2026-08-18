@@ -6,6 +6,7 @@ import {
   paged,
   pageParams,
   parsePage,
+  parseSort,
   searchTerms,
 } from './pagination'
 
@@ -108,5 +109,23 @@ describe('firstParam', () => {
     expect(firstParam(undefined)).toBeUndefined()
     expect(firstParam('')).toBeUndefined()
     expect(firstParam('   ')).toBeUndefined()
+  })
+})
+
+describe('parseSort', () => {
+  const KEYS = ['name', 'code'] as const
+
+  it('reads a valid key and direction', () => {
+    expect(parseSort('code', 'desc', KEYS)).toEqual({ key: 'code', dir: 'desc' })
+  })
+
+  it('defaults direction to ascending when dir is missing or unrecognized', () => {
+    expect(parseSort('name', undefined, KEYS)).toEqual({ key: 'name', dir: 'asc' })
+    expect(parseSort('name', 'sideways', KEYS)).toEqual({ key: 'name', dir: 'asc' })
+  })
+
+  it('is null for an unrecognized or missing key, so the table falls back to its default order', () => {
+    expect(parseSort('balance', 'desc', KEYS)).toBeNull()
+    expect(parseSort(undefined, 'desc', KEYS)).toBeNull()
   })
 })
