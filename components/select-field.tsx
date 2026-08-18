@@ -5,6 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { displayLabel } from '@/lib/option-search'
 
 export type SelectOption = {
   value: string
@@ -17,11 +18,6 @@ export type SelectOption = {
    * (collectors, roles, statuses) have nothing to put there.
    */
   detail?: string
-}
-
-/** `label · detail`, or just the label when there is no second line. */
-function displayLabel(option: SelectOption) {
-  return option.detail ? `${option.label} · ${option.detail}` : option.label
 }
 
 /**

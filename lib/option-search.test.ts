@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { filterOptions, normalizeForSearch } from './option-search'
+import { displayLabel, filterOptions, normalizeForSearch } from './option-search'
 
 /** A collector's round, shaped as the daily-close page builds it. */
 const credits = [
@@ -22,6 +22,21 @@ describe('normalizeForSearch', () => {
 
   it('leaves digits alone', () => {
     expect(normalizeForSearch('1047')).toBe('1047')
+  })
+
+  it('treats punctuation as a term separator, not as a term', () => {
+    expect(normalizeForSearch('1047 · Juan Pérez')).toBe('1047 juan perez')
+    expect(normalizeForSearch('T-0001')).toBe('t 0001')
+  })
+})
+
+describe('displayLabel', () => {
+  it('joins the two lines', () => {
+    expect(displayLabel({ label: '1047', detail: 'Juan Pérez' })).toBe('1047 · Juan Pérez')
+  })
+
+  it('leaves a label with no detail alone', () => {
+    expect(displayLabel({ label: 'JOSE PEREZ' })).toBe('JOSE PEREZ')
   })
 })
 
@@ -58,6 +73,14 @@ describe('filterOptions', () => {
   it('returns nothing when a term matches no option', () => {
     expect(filterOptions(credits, '9999')).toEqual([])
     expect(filterOptions(credits, 'perez 9999')).toEqual([])
+  })
+
+  it('still matches the option whose own display string is the query', () => {
+    // The searchable field puts `1047 · Juan Pérez` in its input once picked.
+    // Re-focusing makes that the query, and it must not filter itself out.
+    for (const credit of credits) {
+      expect(filterOptions(credits, displayLabel(credit))).toContain(credit)
+    }
   })
 
   it('handles options with no detail line', () => {

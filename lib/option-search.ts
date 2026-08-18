@@ -16,18 +16,36 @@
 type Searchable = { label: string; detail?: string }
 
 /**
+ * `label · detail`, or just the label when there is no second line.
+ *
+ * Lives here rather than in either variant because both need it and they must
+ * not drift: the plain select joins the two lines into its trigger and its
+ * options, and the searchable one shows the same string in its input once a
+ * row is picked.
+ */
+export function displayLabel(option: Searchable): string {
+  return option.detail ? `${option.label} · ${option.detail}` : option.label
+}
+
+/**
  * Fold a string down to what an operator would actually type.
  *
  * Accents go: Guatemalan client names carry them (Pérez, Ordóñez) and nobody
  * types them into a lookup box. Stripping the combining marks after NFD also
  * folds ñ to n, which is the same bargain and equally wanted here.
+ *
+ * Punctuation goes too, and that one is load-bearing rather than tidiness. A
+ * searchable field shows `1047 · MARINA TIENDA` once a credit is picked, and
+ * re-focusing it makes that string the query — so a `·` counted as a term of
+ * its own would filter a perfectly valid selection down to no results.
  */
 export function normalizeForSearch(value: string): string {
   return value
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-    .replace(/\s+/g, ' ')
+    // Anything that is not a letter or a digit separates terms.
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim()
 }
 
