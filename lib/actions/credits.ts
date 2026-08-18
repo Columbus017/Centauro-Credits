@@ -462,12 +462,27 @@ const dailyCloseSchema = z.object({
     .pipe(
       z.array(
         z.object({
-          creditId: z.number().int().positive().or(z.string().pipe(foreignKey)),
+          /**
+           * Deliberately permissive, and validated in the action body instead.
+           *
+           * `parseForm` reports every schema failure as the generic
+           * `checkFields` banner, which for a repeater posted as one JSON
+           * field names nothing the operator can find. Letting an absent
+           * credit through to an `ActionError` gets them `creditRequired` —
+           * the same sentence the form itself shows.
+           */
+          creditId: z.union([z.number(), z.string()]).nullish(),
           amount: z.number().positive().or(z.string().pipe(money)),
         }),
       ),
     ),
 })
+
+/** A posted `creditId`, or `null` when the row named no credit at all. */
+function paymentCreditId(value: number | string | null | undefined) {
+  const raw = value == null ? '' : String(value).trim()
+  return /^\d+$/.test(raw) && Number(raw) > 0 ? Number(raw) : null
+}
 
 /**
  * Ports `newIncome.php` + `BLL/credit.php` — `nuevo-ingreso`.
@@ -496,6 +511,16 @@ export async function submitDailyClose(
   )
 
   try {
+    // The form blocks this before it can be submitted; the check is here
+    // because the form is not the only thing that can post to an action, and
+    // guessing a credit for money that named none is how the legacy app put
+    // payments on the wrong card.
+    const rows = payments.map((payment) => {
+      const creditId = paymentCreditId(payment.creditId)
+      if (creditId === null) throw new ActionError('creditRequired')
+      return { creditId, amount: payment.amount }
+    })
+
     await db.$transaction(async (tx) => {
       const existing = await tx.dailyClose.findFirst({
         where: { collectorId, closeDate: isoDate(closeDate) },
@@ -519,7 +544,7 @@ export async function submitDailyClose(
         },
       })
 
-      for (const payment of payments) {
+      for (const payment of rows) {
         const credit = await tx.credit.findFirst({
           where: { id: payment.creditId, deletedAt: null, collectorId },
           include: {

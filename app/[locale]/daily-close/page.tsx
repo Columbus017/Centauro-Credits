@@ -35,9 +35,14 @@ export default async function DailyClosePage({ params }: PageProps<'/[locale]'>)
 
   // A payment names a live credit rather than a typed card number: the legacy
   // form took free text and posted whatever it was given as `_idCredit`.
+  //
+  // Card number and client stay separate fields rather than one joined string:
+  // the searchable field stacks them, putting the number in mono on its own
+  // line because that is what the operator matches against the paper card.
   const credits = live.map((credit) => ({
     value: String(credit.id),
-    label: `${credit.code} · ${credit.customerName}`,
+    label: credit.code,
+    detail: credit.customerName,
     collectorId: String(credit.collectorId),
   }))
 
