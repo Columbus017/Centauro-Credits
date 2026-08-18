@@ -12,7 +12,7 @@ import {
 } from '@/lib/ledger'
 import { daysBetween } from '@/lib/format'
 import { today } from '@/lib/clock'
-import { paged, pageParams, searchTerms, type Paged } from '@/lib/pagination'
+import { paged, pageParams, searchTerms, type Paged, type SortState } from '@/lib/pagination'
 import type { Status } from '@/components/status-badge'
 
 /**
@@ -192,6 +192,31 @@ export type CreditListFilter = {
   search?: string
 }
 
+export const CREDIT_SORT_KEYS = ['code', 'client', 'collector', 'startDate', 'principal'] as const
+export type CreditSortKey = (typeof CREDIT_SORT_KEYS)[number]
+
+/**
+ * `Total`, `Pagos`, `Saldo` and `Estado` have no entry here — they come from
+ * walking the ledger in `projectCredit`, and sorting them would only reorder
+ * the fifty rows already on the page. See SPEC 02.
+ */
+function creditOrderBy(sort: SortState<CreditSortKey>) {
+  if (!sort) return { code: 'asc' as const }
+
+  switch (sort.key) {
+    case 'code':
+      return { code: sort.dir }
+    case 'client':
+      return { customer: { firstName: sort.dir } }
+    case 'collector':
+      return { collector: { firstName: sort.dir } }
+    case 'startDate':
+      return { startDate: sort.dir }
+    case 'principal':
+      return { principal: sort.dir }
+  }
+}
+
 /** The `where` behind both the page and its count. */
 function creditListWhere(scope: Scope, filter: CreditListFilter) {
   const terms = searchTerms(filter.search)
@@ -228,6 +253,7 @@ export async function listCreditsPage(
   scope: Scope,
   filter: CreditListFilter,
   page: number,
+  sort: SortState<CreditSortKey> = null,
 ): Promise<Paged<CreditRow>> {
   const where = creditListWhere(scope, filter)
 
@@ -237,7 +263,7 @@ export async function listCreditsPage(
   const credits = await db.credit.findMany({
     where,
     include: creditInclude,
-    orderBy: { code: 'asc' },
+    orderBy: creditOrderBy(sort),
     skip: params.skip,
     take: params.take,
   })

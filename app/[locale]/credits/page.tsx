@@ -5,6 +5,7 @@ import { AppShell } from '@/components/app-shell'
 import { PageHeader } from '@/components/page-header'
 import { ListFilters } from '@/components/list-filters'
 import { Pagination } from '@/components/pagination'
+import { SortableHead } from '@/components/sortable-head'
 import { StatusBadge } from '@/components/status-badge'
 import { SummaryStat } from '@/components/summary-stat'
 import { LinkButton } from '@/components/link-button'
@@ -19,8 +20,8 @@ import {
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
 import { formatDate, formatNumber, formatQ } from '@/lib/format'
-import { firstParam, parsePage } from '@/lib/pagination'
-import { creditPortfolio, listCreditsPage } from '@/lib/queries/credits'
+import { firstParam, parsePage, parseSort } from '@/lib/pagination'
+import { CREDIT_SORT_KEYS, creditPortfolio, listCreditsPage } from '@/lib/queries/credits'
 import { requireAdmin } from '@/lib/session'
 
 const STATUSES = ['active', 'cancelled', 'badRecord'] as const
@@ -38,9 +39,10 @@ export default async function CreditsPage({ params, searchParams }: PageProps<'/
   const scope = { collectorId: null }
   const status = STATUSES.find((value) => value === firstParam(query.status))
   const filter = { search: firstParam(query.q), status }
+  const sort = parseSort(firstParam(query.sort), firstParam(query.dir), CREDIT_SORT_KEYS)
 
   const [result, portfolio] = await Promise.all([
-    listCreditsPage(scope, filter, parsePage(query.page)),
+    listCreditsPage(scope, filter, parsePage(query.page), sort),
     // The tiles describe the live portfolio, not the filtered table.
     creditPortfolio(scope),
   ])
@@ -97,11 +99,39 @@ export default async function CreditsPage({ params, searchParams }: PageProps<'/
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="pl-4">{t('table.code')}</TableHead>
-                  <TableHead>{t('table.client')}</TableHead>
-                  <TableHead>{t('table.collector')}</TableHead>
-                  <TableHead>{t('table.startDate')}</TableHead>
-                  <TableHead className="text-right">{t('table.principal')}</TableHead>
+                  <SortableHead
+                    label={t('table.code')}
+                    sortKey="code"
+                    current={sort}
+                    searchParams={query}
+                    className="pl-4"
+                  />
+                  <SortableHead
+                    label={t('table.client')}
+                    sortKey="client"
+                    current={sort}
+                    searchParams={query}
+                  />
+                  <SortableHead
+                    label={t('table.collector')}
+                    sortKey="collector"
+                    current={sort}
+                    searchParams={query}
+                  />
+                  <SortableHead
+                    label={t('table.startDate')}
+                    sortKey="startDate"
+                    current={sort}
+                    searchParams={query}
+                  />
+                  <SortableHead
+                    label={t('table.principal')}
+                    sortKey="principal"
+                    current={sort}
+                    searchParams={query}
+                    align="right"
+                    className="text-right"
+                  />
                   <TableHead className="text-right">{t('table.total')}</TableHead>
                   <TableHead className="text-right">{t('table.payments')}</TableHead>
                   <TableHead className="text-right">{t('table.outstanding')}</TableHead>

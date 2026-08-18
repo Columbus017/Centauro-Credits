@@ -4,15 +4,51 @@ import { db } from '@/lib/db'
 import { fromDbDate, fromDbDateOrNull } from '@/lib/db-utils'
 import { fromCents, toCents, GOOD_RECORD_DAYS } from '@/lib/ledger'
 import { today } from '@/lib/clock'
-import { paged, pageParams, searchTerms, type Paged } from '@/lib/pagination'
+import {
+  paged,
+  pageParams,
+  searchTerms,
+  type Paged,
+  type SortDirection,
+  type SortState,
+} from '@/lib/pagination'
 import {
   daysSincePayment,
   listCredits,
   listCreditsForCustomers,
 } from '@/lib/queries/credits'
+import type { Role } from '@/lib/roles'
 
 function fullName(person: { firstName: string; lastName: string }) {
   return `${person.firstName} ${person.lastName}`
+}
+
+/**
+ * Shared by the three unpaged list screens (`Rutas`, `Cobradores`,
+ * `Usuarios`), which sort the whole materialized row array rather than a
+ * page — safe here in a way it is not for `Clientes`/`Créditos`. See SPEC 02.
+ *
+ * `null` sorts last regardless of direction, so "never logged in" doesn't
+ * jump to the top of an ascending `Última actividad` sort.
+ */
+function compareBy<T>(
+  a: T,
+  b: T,
+  pick: (row: T) => string | number | boolean | null,
+  dir: SortDirection,
+): number {
+  const av = pick(a)
+  const bv = pick(b)
+
+  if (av === null || bv === null) return av === bv ? 0 : av === null ? 1 : -1
+
+  if (typeof av === 'string' && typeof bv === 'string') {
+    return dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
+  }
+
+  const an = Number(av)
+  const bn = Number(bv)
+  return dir === 'asc' ? an - bn : bn - an
 }
 
 // ---------------------------------------------------------------- commerce
@@ -60,7 +96,36 @@ export type CollectorRow = {
  * and deriving it twice is how the legacy dashboard came to disagree with the
  * list screen.
  */
-export async function listCollectors(): Promise<CollectorRow[]> {
+export const COLLECTOR_SORT_KEYS = [
+  'name',
+  'clients',
+  'credits',
+  'portfolio',
+  'collected',
+  'status',
+] as const
+export type CollectorSortKey = (typeof COLLECTOR_SORT_KEYS)[number]
+
+function collectorSortValue(row: CollectorRow, key: CollectorSortKey) {
+  switch (key) {
+    case 'name':
+      return row.name
+    case 'clients':
+      return row.clients
+    case 'credits':
+      return row.activeCredits
+    case 'portfolio':
+      return row.portfolio
+    case 'collected':
+      return row.collected
+    case 'status':
+      return row.active
+  }
+}
+
+export async function listCollectors(
+  sort: SortState<CollectorSortKey> = null,
+): Promise<CollectorRow[]> {
   const [rows, credits, payments] = await Promise.all([
     db.collector.findMany({
       orderBy: [{ active: 'desc' }, { firstName: 'asc' }],
@@ -84,7 +149,7 @@ export async function listCollectors(): Promise<CollectorRow[]> {
     collectedCents.set(id, (collectedCents.get(id) ?? 0) + toCents(payment.amount.toString()))
   }
 
-  return rows.map((row) => {
+  const results = rows.map((row) => {
     const own = credits.filter((credit) => credit.collectorId === row.id)
     const live = own.filter((credit) => credit.cancelledAt === null)
 
@@ -107,6 +172,10 @@ export async function listCollectors(): Promise<CollectorRow[]> {
       collected: fromCents(collectedCents.get(row.id) ?? 0),
     }
   })
+
+  if (!sort) return results
+
+  return results.sort((a, b) => compareBy(a, b, (row) => collectorSortValue(row, sort.key), sort.dir))
 }
 
 export async function getCollector(id: number) {
@@ -157,7 +226,37 @@ export type RouteRow = {
  * credits — so the totals are gathered from the credit list rather than a
  * count on the route row.
  */
-export async function listRoutes(): Promise<RouteRow[]> {
+export const ROUTE_SORT_KEYS = [
+  'code',
+  'name',
+  'collector',
+  'clients',
+  'credits',
+  'portfolio',
+  'status',
+] as const
+export type RouteSortKey = (typeof ROUTE_SORT_KEYS)[number]
+
+function routeSortValue(row: RouteRow, key: RouteSortKey) {
+  switch (key) {
+    case 'code':
+      return row.code
+    case 'name':
+      return row.name
+    case 'collector':
+      return row.collectorName
+    case 'clients':
+      return row.customerCount
+    case 'credits':
+      return row.activeCredits
+    case 'portfolio':
+      return row.portfolio
+    case 'status':
+      return row.active
+  }
+}
+
+export async function listRoutes(sort: SortState<RouteSortKey> = null): Promise<RouteRow[]> {
   const [rows, credits, customers] = await Promise.all([
     db.route.findMany({
       orderBy: [{ active: 'desc' }, { code: 'asc' }],
@@ -169,7 +268,7 @@ export async function listRoutes(): Promise<RouteRow[]> {
 
   const routeOfCustomer = new Map(customers.map((c) => [c.id, c.routeId]))
 
-  return rows.map((row) => {
+  const results = rows.map((row) => {
     const live = credits.filter(
       (credit) => routeOfCustomer.get(credit.customerId) === row.id,
     )
@@ -189,6 +288,10 @@ export async function listRoutes(): Promise<RouteRow[]> {
       ),
     }
   })
+
+  if (!sort) return results
+
+  return results.sort((a, b) => compareBy(a, b, (row) => routeSortValue(row, sort.key), sort.dir))
 }
 
 export async function getRoute(id: number) {
@@ -354,6 +457,29 @@ function customerListWhere(filter: CustomerListFilter) {
   }
 }
 
+export const CUSTOMER_SORT_KEYS = ['name', 'commerce', 'route', 'collector'] as const
+export type CustomerSortKey = (typeof CUSTOMER_SORT_KEYS)[number]
+
+/**
+ * `Créditos` and `Saldo` have no entry here — they come from walking each
+ * client's credits in `listCustomersPage` below, and sorting them would only
+ * reorder the fifty rows already on the page. See SPEC 02.
+ */
+function customerOrderBy(sort: SortState<CustomerSortKey>) {
+  if (!sort) return [{ active: 'desc' as const }, { firstName: 'asc' as const }]
+
+  switch (sort.key) {
+    case 'name':
+      return { firstName: sort.dir }
+    case 'commerce':
+      return { commerce: { name: sort.dir } }
+    case 'route':
+      return { route: { name: sort.dir } }
+    case 'collector':
+      return { route: { collector: { firstName: sort.dir } } }
+  }
+}
+
 /**
  * One page of clients, each with their book attached.
  *
@@ -365,6 +491,7 @@ export async function listCustomersPage(
   filter: CustomerListFilter,
   page: number,
   asOf = today(),
+  sort: SortState<CustomerSortKey> = null,
 ): Promise<Paged<CustomerPortfolioRow>> {
   const where = customerListWhere(filter)
 
@@ -373,7 +500,7 @@ export async function listCustomersPage(
 
   const rows = await db.customer.findMany({
     where,
-    orderBy: [{ active: 'desc' }, { firstName: 'asc' }],
+    orderBy: customerOrderBy(sort),
     include: customerInclude,
     skip: params.skip,
     take: params.take,
@@ -447,13 +574,53 @@ export async function customerOptions() {
 
 // -------------------------------------------------------------------- users
 
-export async function listUsers() {
+export type UserRow = {
+  id: number
+  firstName: string
+  lastName: string
+  name: string
+  username: string
+  role: Role
+  collectorId: number | null
+  collectorName: string
+  active: boolean
+  lastLoginAt: string | null
+}
+
+export const USER_SORT_KEYS = [
+  'name',
+  'username',
+  'role',
+  'collector',
+  'lastActive',
+  'status',
+] as const
+export type UserSortKey = (typeof USER_SORT_KEYS)[number]
+
+function userSortValue(row: UserRow, key: UserSortKey) {
+  switch (key) {
+    case 'name':
+      return row.name
+    case 'username':
+      return row.username
+    case 'role':
+      return row.role
+    case 'collector':
+      return row.collectorName
+    case 'lastActive':
+      return row.lastLoginAt
+    case 'status':
+      return row.active
+  }
+}
+
+export async function listUsers(sort: SortState<UserSortKey> = null): Promise<UserRow[]> {
   const rows = await db.user.findMany({
     orderBy: [{ active: 'desc' }, { username: 'asc' }],
     include: { collector: true },
   })
 
-  return rows.map((row) => ({
+  const results = rows.map((row) => ({
     id: row.id,
     firstName: row.firstName,
     lastName: row.lastName,
@@ -465,4 +632,8 @@ export async function listUsers() {
     active: row.active,
     lastLoginAt: row.lastLoginAt ? row.lastLoginAt.toISOString() : null,
   }))
+
+  if (!sort) return results
+
+  return results.sort((a, b) => compareBy(a, b, (row) => userSortValue(row, sort.key), sort.dir))
 }

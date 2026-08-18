@@ -5,6 +5,7 @@ import { AppShell } from '@/components/app-shell'
 import { PageHeader } from '@/components/page-header'
 import { ListFilters } from '@/components/list-filters'
 import { Pagination } from '@/components/pagination'
+import { SortableHead } from '@/components/sortable-head'
 import { StatusBadge } from '@/components/status-badge'
 import { SummaryStat } from '@/components/summary-stat'
 import { LinkButton } from '@/components/link-button'
@@ -18,9 +19,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Link } from '@/i18n/navigation'
+import { today } from '@/lib/clock'
 import { formatQ, formatNumber } from '@/lib/format'
-import { firstParam, parsePage } from '@/lib/pagination'
+import { firstParam, parsePage, parseSort } from '@/lib/pagination'
 import {
+  CUSTOMER_SORT_KEYS,
   customerSummary,
   listCustomersPage,
   routeOptions,
@@ -45,8 +48,10 @@ export default async function ClientsPage({ params, searchParams }: PageProps<'/
     active: statusParam === 'active' ? true : statusParam === 'inactive' ? false : undefined,
   }
 
+  const sort = parseSort(firstParam(query.sort), firstParam(query.dir), CUSTOMER_SORT_KEYS)
+
   const [result, summary, routes] = await Promise.all([
-    listCustomersPage(filter, parsePage(query.page)),
+    listCustomersPage(filter, parsePage(query.page), today(), sort),
     // The tiles describe the whole book, not the filtered table.
     customerSummary(),
     // A filter over existing clients, so retired routes belong in it.
@@ -106,10 +111,31 @@ export default async function ClientsPage({ params, searchParams }: PageProps<'/
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="pl-4">{t('table.client')}</TableHead>
-                  <TableHead>{t('table.commerce')}</TableHead>
-                  <TableHead>{t('table.route')}</TableHead>
-                  <TableHead>{t('table.collector')}</TableHead>
+                  <SortableHead
+                    label={t('table.client')}
+                    sortKey="name"
+                    current={sort}
+                    searchParams={query}
+                    className="pl-4"
+                  />
+                  <SortableHead
+                    label={t('table.commerce')}
+                    sortKey="commerce"
+                    current={sort}
+                    searchParams={query}
+                  />
+                  <SortableHead
+                    label={t('table.route')}
+                    sortKey="route"
+                    current={sort}
+                    searchParams={query}
+                  />
+                  <SortableHead
+                    label={t('table.collector')}
+                    sortKey="collector"
+                    current={sort}
+                    searchParams={query}
+                  />
                   <TableHead className="text-right">{t('table.credits')}</TableHead>
                   <TableHead className="text-right">{t('table.balance')}</TableHead>
                   <TableHead>{tc('status')}</TableHead>

@@ -6,6 +6,7 @@ import { ActionButton } from '@/components/forms/action-button'
 import { NewUserDialog } from '@/components/new-user-dialog'
 import { PageHeader } from '@/components/page-header'
 import { SearchInput } from '@/components/search-input'
+import { SortableHead } from '@/components/sortable-head'
 import { StatusBadge } from '@/components/status-badge'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -17,11 +18,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { formatRelative } from '@/lib/format'
-import { collectorOptions, listUsers } from '@/lib/queries/entities'
+import { firstParam, parseSort } from '@/lib/pagination'
+import { collectorOptions, listUsers, USER_SORT_KEYS } from '@/lib/queries/entities'
 import { setUserActive } from '@/lib/actions/users'
 import { requireAdmin } from '@/lib/session'
 
-export default async function AdminUsersPage({ params }: PageProps<'/[locale]'>) {
+export default async function AdminUsersPage({ params, searchParams }: PageProps<'/[locale]'>) {
   const { locale } = await params
   setRequestLocale(locale)
 
@@ -30,7 +32,10 @@ export default async function AdminUsersPage({ params }: PageProps<'/[locale]'>)
   const tRoles = await getTranslations('roles')
 
   const current = await requireAdmin()
-  const [users, collectors] = await Promise.all([listUsers(), collectorOptions()])
+  const query = await searchParams
+  const sort = parseSort(firstParam(query.sort), firstParam(query.dir), USER_SORT_KEYS)
+
+  const [users, collectors] = await Promise.all([listUsers(sort), collectorOptions()])
 
   return (
     <AppShell title={t('title')}>
@@ -48,12 +53,43 @@ export default async function AdminUsersPage({ params }: PageProps<'/[locale]'>)
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="pl-4">{t('table.user')}</TableHead>
-                  <TableHead>{t('table.username')}</TableHead>
-                  <TableHead>{t('table.role')}</TableHead>
-                  <TableHead>{t('table.linkedCollector')}</TableHead>
-                  <TableHead>{t('table.lastActive')}</TableHead>
-                  <TableHead>{tc('status')}</TableHead>
+                  <SortableHead
+                    label={t('table.user')}
+                    sortKey="name"
+                    current={sort}
+                    searchParams={query}
+                    className="pl-4"
+                  />
+                  <SortableHead
+                    label={t('table.username')}
+                    sortKey="username"
+                    current={sort}
+                    searchParams={query}
+                  />
+                  <SortableHead
+                    label={t('table.role')}
+                    sortKey="role"
+                    current={sort}
+                    searchParams={query}
+                  />
+                  <SortableHead
+                    label={t('table.linkedCollector')}
+                    sortKey="collector"
+                    current={sort}
+                    searchParams={query}
+                  />
+                  <SortableHead
+                    label={t('table.lastActive')}
+                    sortKey="lastActive"
+                    current={sort}
+                    searchParams={query}
+                  />
+                  <SortableHead
+                    label={tc('status')}
+                    sortKey="status"
+                    current={sort}
+                    searchParams={query}
+                  />
                   <TableHead className="pr-4 text-right">{tc('actions')}</TableHead>
                 </TableRow>
               </TableHeader>

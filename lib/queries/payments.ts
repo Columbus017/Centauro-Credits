@@ -2,7 +2,7 @@ import 'server-only'
 
 import { db } from '@/lib/db'
 import { fromDbAmount, fromDbDate, isoDate } from '@/lib/db-utils'
-import { paged, pageParams, searchTerms, type Paged } from '@/lib/pagination'
+import { paged, pageParams, searchTerms, type Paged, type SortState } from '@/lib/pagination'
 import type { Scope } from '@/lib/queries/credits'
 
 export type PaymentRow = {
@@ -119,6 +119,46 @@ function paymentWhere(scope: Scope, filter: PaymentFilter) {
   }
 }
 
+export const PAYMENT_SORT_KEYS = [
+  'date',
+  'credit',
+  'client',
+  'collector',
+  'route',
+  'amount',
+  'balance',
+  'status',
+] as const
+export type PaymentSortKey = (typeof PAYMENT_SORT_KEYS)[number]
+
+/**
+ * Unlike the credit and client lists, nothing here comes from walking the
+ * ledger — `balance` is the stored `runningBalance` column, per the note on
+ * `listPayments` above — so every column is a real sort, not a page-local one.
+ */
+function paymentOrderBy(sort: SortState<PaymentSortKey>) {
+  if (!sort) return [{ entryDate: 'desc' as const }, { id: 'desc' as const }]
+
+  switch (sort.key) {
+    case 'date':
+      return [{ entryDate: sort.dir }, { id: sort.dir }]
+    case 'credit':
+      return { credit: { code: sort.dir } }
+    case 'client':
+      return { credit: { customer: { firstName: sort.dir } } }
+    case 'collector':
+      return { credit: { collector: { firstName: sort.dir } } }
+    case 'route':
+      return { credit: { customer: { route: { name: sort.dir } } } }
+    case 'amount':
+      return { amount: sort.dir }
+    case 'balance':
+      return { runningBalance: sort.dir }
+    case 'status':
+      return { voidedAt: sort.dir }
+  }
+}
+
 /**
  * One page of payments, newest first.
  *
@@ -130,6 +170,7 @@ export async function listPaymentsPage(
   scope: Scope,
   filter: PaymentFilter,
   page: number,
+  sort: SortState<PaymentSortKey> = null,
 ): Promise<Paged<PaymentRow>> {
   const where = paymentWhere(scope, filter)
 
@@ -139,7 +180,7 @@ export async function listPaymentsPage(
   const entries = await db.ledgerEntry.findMany({
     where,
     include: paymentInclude,
-    orderBy: [{ entryDate: 'desc' }, { id: 'desc' }],
+    orderBy: paymentOrderBy(sort),
     skip: params.skip,
     take: params.take,
   })

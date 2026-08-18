@@ -104,3 +104,24 @@ export function searchTerms(search: string | undefined): string[] {
   if (!search) return []
   return search.split(/\s+/).map((term) => term.trim()).filter(Boolean).slice(0, 6)
 }
+
+export type SortDirection = 'asc' | 'desc'
+
+export type SortState<K extends string> = { key: K; dir: SortDirection } | null
+
+/**
+ * `?sort=`/`?dir=` validated against a table's own key list.
+ *
+ * An unrecognized or missing key means "no sort" — the table falls back to
+ * its own default order rather than a hand-edited URL throwing.
+ */
+export function parseSort<K extends string>(
+  sortParam: string | undefined,
+  dirParam: string | undefined,
+  validKeys: readonly K[],
+): SortState<K> {
+  const key = validKeys.find((candidate) => candidate === sortParam)
+  if (!key) return null
+
+  return { key, dir: dirParam === 'desc' ? 'desc' : 'asc' }
+}
