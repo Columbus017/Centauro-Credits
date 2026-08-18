@@ -4,6 +4,7 @@ import { AppShell } from '@/components/app-shell'
 import { ListFilters } from '@/components/list-filters'
 import { PageHeader } from '@/components/page-header'
 import { Pagination } from '@/components/pagination'
+import { SortableHead } from '@/components/sortable-head'
 import { StatusBadge } from '@/components/status-badge'
 import { SummaryStat } from '@/components/summary-stat'
 import { LinkButton } from '@/components/link-button'
@@ -19,9 +20,9 @@ import {
 import { Link } from '@/i18n/navigation'
 import { formatDate, formatNumber, formatQ, formatQCents } from '@/lib/format'
 import { today } from '@/lib/clock'
-import { firstParam, parsePage } from '@/lib/pagination'
+import { firstParam, parsePage, parseSort } from '@/lib/pagination'
 import { collectorOptions } from '@/lib/queries/entities'
-import { listPaymentsPage, paymentSummary } from '@/lib/queries/payments'
+import { listPaymentsPage, PAYMENT_SORT_KEYS, paymentSummary } from '@/lib/queries/payments'
 import { requireAdmin } from '@/lib/session'
 
 export default async function PaymentsPage({ params, searchParams }: PageProps<'/[locale]'>) {
@@ -40,9 +41,11 @@ export default async function PaymentsPage({ params, searchParams }: PageProps<'
     collectorId: collectorParam ? Number(collectorParam) : undefined,
   }
 
+  const sort = parseSort(firstParam(query.sort), firstParam(query.dir), PAYMENT_SORT_KEYS)
+
   const asOf = today()
   const [result, summary, collectors] = await Promise.all([
-    listPaymentsPage(scope, filter, parsePage(query.page)),
+    listPaymentsPage(scope, filter, parsePage(query.page), sort),
     paymentSummary(scope, filter, asOf),
     // Retired collectors included: this filters history, not a new record.
     collectorOptions({ includeInactive: true }),
@@ -81,14 +84,59 @@ export default async function PaymentsPage({ params, searchParams }: PageProps<'
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="pl-4">{t('table.date')}</TableHead>
-                  <TableHead>{t('table.credit')}</TableHead>
-                  <TableHead>{t('table.client')}</TableHead>
-                  <TableHead>{t('table.collector')}</TableHead>
-                  <TableHead>{t('table.route')}</TableHead>
-                  <TableHead className="text-right">{t('table.amount')}</TableHead>
-                  <TableHead className="text-right">{t('table.balance')}</TableHead>
-                  <TableHead>{tc('status')}</TableHead>
+                  <SortableHead
+                    label={t('table.date')}
+                    sortKey="date"
+                    current={sort}
+                    searchParams={query}
+                    className="pl-4"
+                  />
+                  <SortableHead
+                    label={t('table.credit')}
+                    sortKey="credit"
+                    current={sort}
+                    searchParams={query}
+                  />
+                  <SortableHead
+                    label={t('table.client')}
+                    sortKey="client"
+                    current={sort}
+                    searchParams={query}
+                  />
+                  <SortableHead
+                    label={t('table.collector')}
+                    sortKey="collector"
+                    current={sort}
+                    searchParams={query}
+                  />
+                  <SortableHead
+                    label={t('table.route')}
+                    sortKey="route"
+                    current={sort}
+                    searchParams={query}
+                  />
+                  <SortableHead
+                    label={t('table.amount')}
+                    sortKey="amount"
+                    current={sort}
+                    searchParams={query}
+                    align="right"
+                    className="text-right"
+                  />
+                  <SortableHead
+                    label={t('table.balance')}
+                    sortKey="balance"
+                    current={sort}
+                    searchParams={query}
+                    align="right"
+                    className="text-right"
+                  />
+                  <SortableHead
+                    label={tc('status')}
+                    sortKey="status"
+                    current={sort}
+                    searchParams={query}
+                  />
                   <TableHead className="pr-4 text-right">{tc('actions')}</TableHead>
                 </TableRow>
               </TableHeader>
