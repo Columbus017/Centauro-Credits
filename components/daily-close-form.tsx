@@ -159,6 +159,12 @@ export function DailyCloseForm({
         if (missingCredit) {
           event.preventDefault()
           setCreditErrorShown(true)
+          const offendingRow = payments.find(
+            (payment) => payment.amount.trim() !== '' && payment.creditId === '',
+          )
+          if (offendingRow) {
+            creditFieldRefs.current.get(offendingRow.key)?.focus()
+          }
         }
       }}
       className="grid gap-6 lg:grid-cols-3"
