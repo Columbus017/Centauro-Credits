@@ -101,6 +101,9 @@ export function CommerceCard({ commerce }: { commerce: CommerceRow[] }) {
               <ActionButton
                 action={setCommerceActive}
                 fields={{ id: business.id, active: String(!business.active) }}
+                toastMessage={
+                  business.active ? tt('commerceDeactivated') : tt('commerceActivated')
+                }
               >
                 {business.active ? tc('deactivate') : tc('activate')}
               </ActionButton>

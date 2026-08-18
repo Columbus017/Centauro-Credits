@@ -30,6 +30,7 @@ export default async function AdminUsersPage({ params, searchParams }: PageProps
   const t = await getTranslations('admin.users')
   const tc = await getTranslations('common')
   const tRoles = await getTranslations('roles')
+  const tt = await getTranslations('toast')
 
   const current = await requireAdmin()
   const query = await searchParams
@@ -124,6 +125,9 @@ export default async function AdminUsersPage({ params, searchParams }: PageProps
                           <ActionButton
                             action={setUserActive}
                             fields={{ id: user.id, active: String(!user.active) }}
+                            toastMessage={
+                              user.active ? tt('userDeactivated') : tt('userActivated')
+                            }
                           >
                             {user.active ? tc('deactivate') : tc('activate')}
                           </ActionButton>

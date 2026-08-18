@@ -39,6 +39,7 @@ export default async function CollectorDetailPage({
   const tc = await getTranslations('common')
   const tCredits = await getTranslations('credits')
   const tClose = await getTranslations('dailyClose')
+  const tt = await getTranslations('toast')
 
   const [own, allRoutes, closes] = await Promise.all([
     listCredits({ collectorId: collector.id }),
@@ -68,6 +69,9 @@ export default async function CollectorDetailPage({
               action={setCollectorActive}
               fields={{ id: collector.id, active: String(!collector.active) }}
               size="lg"
+              toastMessage={
+                collector.active ? tt('collectorDeactivated') : tt('collectorActivated')
+              }
             >
               {collector.active ? tc('deactivate') : tc('activate')}
             </ActionButton>
