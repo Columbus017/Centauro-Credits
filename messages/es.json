@@ -596,5 +596,33 @@
     "page": "Página {page} de {pageCount}",
     "previous": "Anterior",
     "next": "Siguiente"
+  },
+  "toast": {
+    "loginSuccess": "Sesión iniciada correctamente.",
+    "collectorCreated": "Cobrador creado.",
+    "collectorUpdated": "Cobrador actualizado.",
+    "collectorActivated": "Cobrador activado.",
+    "collectorDeactivated": "Cobrador desactivado.",
+    "routeCreated": "Ruta creada.",
+    "routeUpdated": "Ruta actualizada.",
+    "routeActivated": "Ruta activada.",
+    "routeDeactivated": "Ruta desactivada.",
+    "customerCreated": "Cliente creado.",
+    "customerUpdated": "Cliente actualizado.",
+    "customerActivated": "Cliente activado.",
+    "customerDeactivated": "Cliente desactivado.",
+    "commerceCreated": "Comercio creado.",
+    "commerceActivated": "Comercio activado.",
+    "commerceDeactivated": "Comercio desactivado.",
+    "creditCreated": "Crédito creado.",
+    "creditUpdated": "Crédito actualizado.",
+    "creditDeleted": "Crédito eliminado.",
+    "creditHistoryImported": "Historial del crédito ingresado.",
+    "dailyCloseSaved": "Ingreso diario guardado.",
+    "paymentRecorded": "Pago registrado.",
+    "paymentVoided": "Pago anulado.",
+    "userCreated": "Usuario creado.",
+    "userActivated": "Usuario activado.",
+    "userDeactivated": "Usuario desactivado."
   }
 }
