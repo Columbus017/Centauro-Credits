@@ -58,6 +58,9 @@ export function DailyCloseForm({
   const [disbursed, setDisbursed] = useState('')
   const [surplus, setSurplus] = useState('')
   const [nextKey, setNextKey] = useState(2)
+  // Which row to focus on mount. `null` on first render: the form opening is
+  // not the operator asking for a payment row.
+  const [focusKey, setFocusKey] = useState<number | null>(null)
   const [collectorId, setCollectorId] = useState(collectors[0]?.value ?? '')
 
   // Only the chosen collector's book: the action refuses a credit from anyone
@@ -91,6 +94,9 @@ export function DailyCloseForm({
 
   function addPayment() {
     setPayments((current) => [...current, { key: nextKey, creditId: '', amount: '' }])
+    // The row the operator just asked for takes the caret, so the card number
+    // can be typed without reaching for the mouse again.
+    setFocusKey(nextKey)
     setNextKey((key) => key + 1)
   }
 
@@ -192,6 +198,7 @@ export function DailyCloseForm({
                     // No fallback to the first credit: a row nobody touched is
                     // unselected, and says so.
                     defaultValue={payment.creditId || undefined}
+                    autoFocus={payment.key === focusKey}
                     onValueChange={(creditId) =>
                       updatePayment(payment.key, { creditId })
                     }

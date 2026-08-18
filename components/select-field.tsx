@@ -45,6 +45,7 @@ export function SelectField({
   className,
   size,
   name,
+  autoFocus,
   onValueChange,
 }: {
   options: SelectOption[]
@@ -52,6 +53,13 @@ export function SelectField({
   className?: string
   size?: React.ComponentProps<typeof SelectTrigger>['size']
   name?: string
+  /**
+   * Focus the control on mount.
+   *
+   * For a repeater that has just added a row: the operator asked for it, so
+   * the next thing they type goes where they are looking.
+   */
+  autoFocus?: boolean
   /**
    * For selects inside a repeater, whose value has to be mirrored in state.
    *
@@ -74,6 +82,7 @@ export function SelectField({
         className={className}
         size={size}
         name={name}
+        autoFocus={autoFocus}
         // Passed straight through, never wrapped: an arrow function built here
         // would be a new function even when the prop is absent, which is the
         // thing that breaks server-rendered pages.
@@ -98,7 +107,7 @@ export function SelectField({
         onValueChange ? (value) => onValueChange(String(value)) : undefined
       }
     >
-      <SelectTrigger size={size} className={className}>
+      <SelectTrigger size={size} className={className} autoFocus={autoFocus}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

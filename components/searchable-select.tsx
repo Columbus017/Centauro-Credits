@@ -31,6 +31,7 @@ export function SearchableSelect({
   className,
   size,
   name,
+  autoFocus,
   onValueChange,
 }: {
   options: SelectOption[]
@@ -38,6 +39,8 @@ export function SearchableSelect({
   className?: string
   size?: 'sm' | 'default'
   name?: string
+  /** Focus the search input on mount, for a row a repeater just added. */
+  autoFocus?: boolean
   onValueChange?: (value: string) => void
 }) {
   const t = useTranslations('common')
@@ -73,6 +76,7 @@ export function SearchableSelect({
     >
       <ComboboxInputGroup size={size} className={className}>
         <ComboboxInput
+          autoFocus={autoFocus}
           // Open, the field is a search box; closed, it is a picker.
           placeholder={open ? t('searchOption') : t('selectPlaceholder')}
         />
