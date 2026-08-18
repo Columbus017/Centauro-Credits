@@ -41,7 +41,7 @@ export function DailyCloseForm({
 }: {
   collectors: { value: string; label: string }[]
   /** Live credits, so a payment names a real one rather than free text. */
-  credits: { value: string; label: string; collectorId: string }[]
+  credits: { value: string; label: string; detail: string; collectorId: string }[]
   today: string
   locale: string
 }) {

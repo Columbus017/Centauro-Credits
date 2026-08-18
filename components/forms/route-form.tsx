@@ -111,7 +111,7 @@ export function RouteForm({
                 className="h-10 w-full"
                 options={collectors}
                 defaultValue={
-                  route?.collectorId === null ? undefined : String(route?.collectorId)
+                  route?.collectorId != null ? String(route.collectorId) : undefined
                 }
               />
               <FieldError state={state} field="collectorId" />

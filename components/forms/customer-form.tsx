@@ -183,8 +183,12 @@ export function CustomerForm({
                   name="routeId"
                   className="h-10 w-full"
                   options={routes}
+                  // `!= null` catches both an unassigned route and a customer
+                  // that is not there at all — on the create form there is no
+                  // `customer`, and `String(undefined)` is the string
+                  // "undefined", which the select then rendered verbatim.
                   defaultValue={
-                    customer?.routeId === null ? undefined : String(customer?.routeId)
+                    customer?.routeId != null ? String(customer.routeId) : undefined
                   }
                 />
               </FormField>
@@ -194,9 +198,9 @@ export function CustomerForm({
                   className="h-10 w-full"
                   options={businesses}
                   defaultValue={
-                    customer?.commerceId === null
-                      ? undefined
-                      : String(customer?.commerceId)
+                    customer?.commerceId != null
+                      ? String(customer.commerceId)
+                      : undefined
                   }
                 />
               </FormField>
