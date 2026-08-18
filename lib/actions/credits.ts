@@ -133,7 +133,10 @@ export async function createCredit(
   })
 
   revalidateLedger()
-  redirect({ href: `/credits/${credit.id}`, locale: localeFrom(formData) })
+  redirect({
+    href: { pathname: `/credits/${credit.id}`, query: { toast: 'creditCreated' } },
+    locale: localeFrom(formData),
+  })
   // Unreachable: `redirect` throws. TypeScript cannot see that through
   // next-intl's destructured export.
   return {}
@@ -210,7 +213,10 @@ export async function updateCredit(
   })
 
   revalidateLedger()
-  redirect({ href: `/credits/${id}`, locale: localeFrom(formData) })
+  redirect({
+    href: { pathname: `/credits/${id}`, query: { toast: 'creditUpdated' } },
+    locale: localeFrom(formData),
+  })
   // Unreachable: `redirect` throws. TypeScript cannot see that through
   // next-intl's destructured export.
   return {}
@@ -240,7 +246,10 @@ export async function deleteCredit(formData: FormData) {
   })
 
   revalidateLedger()
-  redirect({ href: '/credits', locale: localeFrom(formData) })
+  redirect({
+    href: { pathname: '/credits', query: { toast: 'creditDeleted' } },
+    locale: localeFrom(formData),
+  })
 }
 
 // ----------------------------------------------------------------- payments
@@ -435,7 +444,10 @@ export async function importCreditHistory(
   }
 
   revalidateLedger()
-  redirect({ href: `/credits/${creditId}`, locale: localeFrom(formData) })
+  redirect({
+    href: { pathname: `/credits/${creditId}`, query: { toast: 'creditHistoryImported' } },
+    locale: localeFrom(formData),
+  })
   // Unreachable: `redirect` throws. TypeScript cannot see that through
   // next-intl's destructured export.
   return {}
@@ -582,7 +594,10 @@ export async function submitDailyClose(
   }
 
   revalidateLedger()
-  redirect({ href: '/daily-close', locale: localeFrom(formData) })
+  redirect({
+    href: { pathname: '/daily-close', query: { toast: 'dailyCloseSaved' } },
+    locale: localeFrom(formData),
+  })
   // Unreachable: `redirect` throws. TypeScript cannot see that through
   // next-intl's destructured export.
   return {}
