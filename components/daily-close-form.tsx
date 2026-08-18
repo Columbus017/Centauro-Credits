@@ -69,6 +69,11 @@ export function DailyCloseForm({
   const disbursedRef = useRef<HTMLInputElement>(null)
   const surplusRef = useRef<HTMLInputElement>(null)
 
+  // Keyed by `payment.key`, not index — a row's identity survives its
+  // neighbors being added or removed.
+  const creditFieldRefs = useRef(new Map<number, HTMLElement>())
+  const amountInputRefs = useRef(new Map<number, HTMLInputElement>())
+
   // Only the chosen collector's book: the action refuses a credit from anyone
   // else's round, and offering one the server will reject is a trap.
   const ownCredits = useMemo(
@@ -210,6 +215,10 @@ export function DailyCloseForm({
                     onValueChange={(creditId) =>
                       updatePayment(payment.key, { creditId })
                     }
+                    ref={(el) => {
+                      if (el) creditFieldRefs.current.set(payment.key, el)
+                      else creditFieldRefs.current.delete(payment.key)
+                    }}
                   />
                 </FormField>
                 <FormField
@@ -226,6 +235,10 @@ export function DailyCloseForm({
                     onChange={(event) =>
                       updatePayment(payment.key, { amount: event.target.value })
                     }
+                    ref={(el) => {
+                      if (el) amountInputRefs.current.set(payment.key, el)
+                      else amountInputRefs.current.delete(payment.key)
+                    }}
                   />
                 </FormField>
                 <Button
