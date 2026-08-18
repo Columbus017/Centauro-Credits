@@ -1,6 +1,6 @@
 # SPEC 03 — Toast notifications
 
-> **Status:** Draft
+> **Status:** Approved
 > **Depends on:** —
 > **Date:** 2026-08-17
 > **Objective:** Add success-confirmation toasts, built on @base-ui/react's already-installed Toast primitive, across every write flow that today gives the operator no feedback that it worked.
