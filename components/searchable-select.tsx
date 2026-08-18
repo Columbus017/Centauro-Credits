@@ -44,13 +44,20 @@ export function SearchableSelect({
   const [open, setOpen] = useState(false)
 
   // Base UI holds the whole option object as the value, not the id string.
-  const selected = options.find((option) => option.value === defaultValue) ?? null
+  //
+  // Resolved once and frozen: after mount the Combobox owns its own selection,
+  // and feeding a *changing* `defaultValue` to an uncontrolled one is both a
+  // no-op and a console warning. Callers that need the field to reset — the
+  // daily-close repeater when the collector changes — remount it with a `key`.
+  const [initialValue] = useState(
+    () => options.find((option) => option.value === defaultValue) ?? null,
+  )
 
   return (
     <Combobox
       items={options}
       name={name}
-      defaultValue={selected}
+      defaultValue={initialValue}
       onOpenChange={setOpen}
       // `{ value, label }` is the shape Base UI submits and displays from
       // automatically; only the joined second line needs saying.

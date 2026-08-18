@@ -101,21 +101,44 @@ export function DailyCloseForm({
   // One JSON field for the repeater, as `newIncome.php` posted it.
   const paymentsJson = JSON.stringify(
     payments
-      .map((payment) => ({
-        // An untouched row shows the first option; that is what it means.
-        creditId: payment.creditId || ownCredits[0]?.value || '',
-        amount: payment.amount,
-      }))
+      .map((payment) => ({ creditId: payment.creditId, amount: payment.amount }))
       .filter((payment) => payment.creditId !== '' && payment.amount !== ''),
   )
 
+  /**
+   * A row carrying money but naming no credit.
+   *
+   * This has to stop the submit rather than fall through: `collected` above is
+   * summed from every row, while `paymentsJson` drops the incomplete ones, so
+   * letting it through would store a cash figure the ledger entries do not add
+   * up to — and posting the payment against whichever credit sorted first, as
+   * this form used to, is worse still.
+   */
+  const missingCredit = payments.some(
+    (payment) => payment.amount.trim() !== '' && payment.creditId === '',
+  )
+  const [creditErrorShown, setCreditErrorShown] = useState(false)
+  // Derived, so the banner clears itself the moment the row is completed.
+  const creditError = creditErrorShown && missingCredit
+
   return (
-    <form action={formAction} className="grid gap-6 lg:grid-cols-3">
+    <form
+      action={formAction}
+      onSubmit={(event) => {
+        if (missingCredit) {
+          event.preventDefault()
+          setCreditErrorShown(true)
+        }
+      }}
+      className="grid gap-6 lg:grid-cols-3"
+    >
       <input type="hidden" name="locale" value={uiLocale} />
       <input type="hidden" name="payments" value={paymentsJson} />
 
       <div className="space-y-6 lg:col-span-2">
-        <FormError state={state} />
+        {/* The client-side block borrows the action's own error contract, so
+            both kinds of failure look the same to the operator. */}
+        <FormError state={creditError ? { error: 'creditRequired' } : state} />
         <Card>
           <CardHeader>
             <CardTitle>{t('title')}</CardTitle>
@@ -166,7 +189,9 @@ export function DailyCloseForm({
                     key={`${payment.key}-${collectorId}`}
                     className="h-10 w-full"
                     options={ownCredits}
-                    defaultValue={payment.creditId || ownCredits[0]?.value}
+                    // No fallback to the first credit: a row nobody touched is
+                    // unselected, and says so.
+                    defaultValue={payment.creditId || undefined}
                     onValueChange={(creditId) =>
                       updatePayment(payment.key, { creditId })
                     }
