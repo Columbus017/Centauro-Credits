@@ -49,6 +49,7 @@ export default async function CreditDetailPage({
   const t = await getTranslations('credits')
   const tc = await getTranslations('common')
   const tPayments = await getTranslations('payments')
+  const tt = await getTranslations('toast')
 
   const customerName = credit.customerName
 
@@ -224,6 +225,7 @@ export default async function CreditDetailPage({
                               variant="ghost"
                               size="sm"
                               className="text-destructive"
+                              toastMessage={tt('paymentVoided')}
                             >
                               {t('detail.void')}
                             </ActionButton>

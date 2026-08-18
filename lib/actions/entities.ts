@@ -45,7 +45,10 @@ export async function createCollector(
   })
 
   revalidate('/collectors', '/routes', '/')
-  redirect({ href: '/collectors', locale: localeFrom(formData) })
+  redirect({
+    href: { pathname: '/collectors', query: { toast: 'collectorCreated' } },
+    locale: localeFrom(formData),
+  })
   // Unreachable: `redirect` throws. TypeScript cannot see that through
   // next-intl's destructured export.
   return {}
@@ -67,7 +70,10 @@ export async function updateCollector(
   })
 
   revalidate('/collectors', '/collectors/[id]', '/routes', '/')
-  redirect({ href: `/collectors/${id}`, locale: localeFrom(formData) })
+  redirect({
+    href: { pathname: `/collectors/${id}`, query: { toast: 'collectorUpdated' } },
+    locale: localeFrom(formData),
+  })
   // Unreachable: `redirect` throws. TypeScript cannot see that through
   // next-intl's destructured export.
   return {}
@@ -110,7 +116,10 @@ export async function createRoute(
   await db.route.create({ data: parsed.data })
 
   revalidate('/routes', '/clients', '/')
-  redirect({ href: '/routes', locale: localeFrom(formData) })
+  redirect({
+    href: { pathname: '/routes', query: { toast: 'routeCreated' } },
+    locale: localeFrom(formData),
+  })
   // Unreachable: `redirect` throws. TypeScript cannot see that through
   // next-intl's destructured export.
   return {}
@@ -129,7 +138,10 @@ export async function updateRoute(
   await db.route.update({ where: { id }, data: rest })
 
   revalidate('/routes', '/routes/[id]', '/clients', '/clients/[id]', '/')
-  redirect({ href: `/routes/${id}`, locale: localeFrom(formData) })
+  redirect({
+    href: { pathname: `/routes/${id}`, query: { toast: 'routeUpdated' } },
+    locale: localeFrom(formData),
+  })
   // Unreachable: `redirect` throws. TypeScript cannot see that through
   // next-intl's destructured export.
   return {}
@@ -172,7 +184,10 @@ export async function createCustomer(
   const customer = await db.customer.create({ data: parsed.data })
 
   revalidate('/clients', '/routes', '/')
-  redirect({ href: `/clients/${customer.id}`, locale: localeFrom(formData) })
+  redirect({
+    href: { pathname: `/clients/${customer.id}`, query: { toast: 'customerCreated' } },
+    locale: localeFrom(formData),
+  })
   // Unreachable: `redirect` throws. TypeScript cannot see that through
   // next-intl's destructured export.
   return {}
@@ -191,7 +206,10 @@ export async function updateCustomer(
   await db.customer.update({ where: { id }, data: rest })
 
   revalidate('/clients', '/clients/[id]', '/credits', '/routes', '/')
-  redirect({ href: `/clients/${id}`, locale: localeFrom(formData) })
+  redirect({
+    href: { pathname: `/clients/${id}`, query: { toast: 'customerUpdated' } },
+    locale: localeFrom(formData),
+  })
   // Unreachable: `redirect` throws. TypeScript cannot see that through
   // next-intl's destructured export.
   return {}

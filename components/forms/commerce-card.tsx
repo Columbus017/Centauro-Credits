@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 
@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { toastSuccess } from '@/components/ui/toast'
 import { createCommerce, setCommerceActive } from '@/lib/actions/entities'
 import { EMPTY_STATE, type FormState } from '@/lib/actions/form-state'
 
@@ -36,6 +37,7 @@ export type CommerceRow = {
 export function CommerceCard({ commerce }: { commerce: CommerceRow[] }) {
   const t = useTranslations('admin.settings')
   const tc = useTranslations('common')
+  const tt = useTranslations('toast')
   const locale = useLocale()
 
   const [name, setName] = useState('')
@@ -49,6 +51,13 @@ export function CommerceCard({ commerce }: { commerce: CommerceRow[] }) {
     setSeenState(state)
     if (state.ok) setName('')
   }
+
+  // A toast is an external side effect, unlike the state adjustment above —
+  // it must not run during render, where Strict Mode double-invokes the
+  // function body and would fire it twice per submission.
+  useEffect(() => {
+    if (state.ok) toastSuccess(tt('commerceCreated'))
+  }, [state, tt])
 
   return (
     <Card>
@@ -92,6 +101,9 @@ export function CommerceCard({ commerce }: { commerce: CommerceRow[] }) {
               <ActionButton
                 action={setCommerceActive}
                 fields={{ id: business.id, active: String(!business.active) }}
+                toastMessage={
+                  business.active ? tt('commerceDeactivated') : tt('commerceActivated')
+                }
               >
                 {business.active ? tc('deactivate') : tc('activate')}
               </ActionButton>

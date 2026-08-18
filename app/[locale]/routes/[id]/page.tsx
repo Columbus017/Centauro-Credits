@@ -36,6 +36,7 @@ export default async function RouteDetailPage({
   const t = await getTranslations('routes')
   const tc = await getTranslations('common')
   const tClients = await getTranslations('clients')
+  const tt = await getTranslations('toast')
 
   // Filtered in the query, not after: this used to load all 511 clients and
   // all 4,737 credits to show the handful on one round.
@@ -56,6 +57,7 @@ export default async function RouteDetailPage({
               action={setRouteActive}
               fields={{ id: route.id, active: String(!route.active) }}
               size="lg"
+              toastMessage={route.active ? tt('routeDeactivated') : tt('routeActivated')}
             >
               {route.active ? tc('deactivate') : tc('activate')}
             </ActionButton>

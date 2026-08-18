@@ -596,5 +596,33 @@
     "page": "Page {page} of {pageCount}",
     "previous": "Previous",
     "next": "Next"
+  },
+  "toast": {
+    "loginSuccess": "Signed in successfully.",
+    "collectorCreated": "Collector created.",
+    "collectorUpdated": "Collector updated.",
+    "collectorActivated": "Collector activated.",
+    "collectorDeactivated": "Collector deactivated.",
+    "routeCreated": "Route created.",
+    "routeUpdated": "Route updated.",
+    "routeActivated": "Route activated.",
+    "routeDeactivated": "Route deactivated.",
+    "customerCreated": "Client created.",
+    "customerUpdated": "Client updated.",
+    "customerActivated": "Client activated.",
+    "customerDeactivated": "Client deactivated.",
+    "commerceCreated": "Commerce created.",
+    "commerceActivated": "Commerce activated.",
+    "commerceDeactivated": "Commerce deactivated.",
+    "creditCreated": "Credit created.",
+    "creditUpdated": "Credit updated.",
+    "creditDeleted": "Credit deleted.",
+    "creditHistoryImported": "Credit history imported.",
+    "dailyCloseSaved": "Daily close saved.",
+    "paymentRecorded": "Payment recorded.",
+    "paymentVoided": "Payment voided.",
+    "userCreated": "User created.",
+    "userActivated": "User activated.",
+    "userDeactivated": "User deactivated."
   }
 }

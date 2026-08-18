@@ -43,7 +43,13 @@ export async function login(
   try {
     await signIn('credentials', {
       ...parsed.data,
-      redirectTo: getPathname({ href: '/', locale }),
+      // `/` is where `proxy.ts` turns into the right screen for the role —
+      // including, for a collector, its own `/` → role-home redirect. That
+      // hop is why `localized()` there has to carry this query param along.
+      redirectTo: getPathname({
+        href: { pathname: '/', query: { toast: 'loginSuccess' } },
+        locale,
+      }),
     })
   } catch (error) {
     // A successful sign-in also throws — a Next redirect, which must travel on.

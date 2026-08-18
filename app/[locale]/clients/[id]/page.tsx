@@ -39,6 +39,7 @@ export default async function ClientDetailPage({
   const t = await getTranslations('clients')
   const tc = await getTranslations('common')
   const tCredits = await getTranslations('credits')
+  const tt = await getTranslations('toast')
 
   const [own, payments] = await Promise.all([
     listCredits({ collectorId: null }, { customerId: customer.id }),
@@ -72,6 +73,9 @@ export default async function ClientDetailPage({
               action={setCustomerActive}
               fields={{ id: customer.id, active: String(!customer.active) }}
               size="lg"
+              toastMessage={
+                customer.active ? tt('customerDeactivated') : tt('customerActivated')
+              }
             >
               {customer.active ? tc('deactivate') : tc('activate')}
             </ActionButton>

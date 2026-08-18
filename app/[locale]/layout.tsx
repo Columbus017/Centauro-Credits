@@ -1,10 +1,13 @@
 import type { Metadata, Viewport } from 'next'
+import { Suspense } from 'react'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { hasLocale, NextIntlClientProvider } from 'next-intl'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { notFound } from 'next/navigation'
 
 import { ThemeScript } from '@/components/theme-script'
+import { ToastRedirectListener } from '@/components/toast-redirect-listener'
+import { ToastProvider } from '@/components/ui/toast'
 import { routing } from '@/i18n/routing'
 import '../globals.css'
 
@@ -60,7 +63,14 @@ export default async function LocaleLayout({
     >
       <body className="font-sans antialiased">
         <ThemeScript />
-        <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        <NextIntlClientProvider>
+          <ToastProvider>
+            <Suspense>
+              <ToastRedirectListener />
+            </Suspense>
+            {children}
+          </ToastProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   )

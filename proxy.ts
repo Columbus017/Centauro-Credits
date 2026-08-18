@@ -21,12 +21,21 @@ function localeOf(pathname: string) {
   return routing.locales.find((locale) => locale === first) ?? routing.defaultLocale
 }
 
-/** A user-facing URL in the same locale as the request. */
+/**
+ * A user-facing URL in the same locale as the request.
+ *
+ * Carries over `request.nextUrl.search` (e.g. `?toast=loginSuccess`) so a
+ * one-shot query param survives every proxy-issued redirect, not just the
+ * post-login one — without this, a collector's `/` → role-home bounce would
+ * drop it and the login toast would only ever fire for admins.
+ */
 function localized(request: NextRequest, path: string) {
   const locale = localeOf(request.nextUrl.pathname)
   const prefix = locale === routing.defaultLocale ? '' : `/${locale}`
   const target = path === '/' ? prefix || '/' : `${prefix}${path}`
-  return new URL(target, request.nextUrl)
+  const url = new URL(target, request.nextUrl)
+  url.search = request.nextUrl.search
+  return url
 }
 
 /**
