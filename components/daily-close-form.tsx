@@ -28,6 +28,12 @@ function toNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+// Only the "Guardar" button submits — Enter here has no row to add, so it is
+// simply swallowed rather than triggering an implicit submit.
+function swallowEnter(event: React.KeyboardEvent) {
+  if (event.key === 'Enter') event.preventDefault()
+}
+
 /**
  * The collector's end-of-day cash close. Payments are entered as a batch and
  * the cash figure is derived exactly as the legacy dashboard computed it:
@@ -284,6 +290,7 @@ export function DailyCloseForm({
                 className="h-10 text-right font-mono"
                 value={base}
                 onChange={(event) => setBase(event.target.value)}
+                onKeyDown={swallowEnter}
                 ref={baseRef}
               />
             </FormField>
@@ -303,6 +310,7 @@ export function DailyCloseForm({
                 className="h-10 text-right font-mono"
                 value={disbursed}
                 onChange={(event) => setDisbursed(event.target.value)}
+                onKeyDown={swallowEnter}
                 ref={disbursedRef}
               />
             </FormField>
@@ -316,6 +324,7 @@ export function DailyCloseForm({
                 className="h-10 text-right font-mono"
                 value={surplus}
                 onChange={(event) => setSurplus(event.target.value)}
+                onKeyDown={swallowEnter}
                 ref={surplusRef}
               />
             </FormField>
