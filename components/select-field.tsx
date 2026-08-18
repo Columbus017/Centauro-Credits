@@ -1,3 +1,4 @@
+import { SearchableSelect } from '@/components/searchable-select'
 import {
   Select,
   SelectContent,
@@ -6,6 +7,16 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { displayLabel } from '@/lib/option-search'
+
+/**
+ * Above this many options the field becomes searchable.
+ *
+ * A threshold rather than a `searchable` prop, so the next long list somebody
+ * adds is not born with the same defect. Twelve is roughly where a dropdown
+ * stops being scannable at a glance; below it a search box is friction, and a
+ * two-option Rol picker with a filter would be a regression.
+ */
+const SEARCHABLE_THRESHOLD = 12
 
 export type SelectOption = {
   value: string
@@ -21,7 +32,7 @@ export type SelectOption = {
 }
 
 /**
- * A labelled select.
+ * A labelled select, plain or searchable depending on how many options it got.
  *
  * Base UI's `Select.Value` renders the raw *value* unless the root is given an
  * `items` map — without it a collector picker shows "1" instead of the name.
@@ -51,6 +62,26 @@ export function SelectField({
    */
   onValueChange?: (value: string) => void
 }) {
+  // A long list is unusable as a dropdown: Base UI's typeahead moves the
+  // highlight but shows the operator nothing of what they typed.
+  if (options.length > SEARCHABLE_THRESHOLD) {
+    return (
+      <SearchableSelect
+        options={options}
+        // No `?? options[0]`. A searchable field starts empty, so a row nobody
+        // touched cannot pass for a deliberate choice.
+        defaultValue={defaultValue}
+        className={className}
+        size={size}
+        name={name}
+        // Passed straight through, never wrapped: an arrow function built here
+        // would be a new function even when the prop is absent, which is the
+        // thing that breaks server-rendered pages.
+        onValueChange={onValueChange}
+      />
+    )
+  }
+
   // One list feeds both `items` and the popup, so the trigger and the options
   // can never disagree about what a row says — including its second line.
   const items = options.map((option) => ({
