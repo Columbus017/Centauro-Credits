@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { fromDbDate, fromDbDateOrNull } from '@/lib/db-utils'
 import { fromCents, toCents, GOOD_RECORD_DAYS } from '@/lib/ledger'
 import { today } from '@/lib/clock'
-import { paged, pageParams, searchTerms, type Paged } from '@/lib/pagination'
+import { paged, pageParams, searchTerms, type Paged, type SortState } from '@/lib/pagination'
 import {
   daysSincePayment,
   listCredits,
@@ -354,6 +354,29 @@ function customerListWhere(filter: CustomerListFilter) {
   }
 }
 
+export const CUSTOMER_SORT_KEYS = ['name', 'commerce', 'route', 'collector'] as const
+export type CustomerSortKey = (typeof CUSTOMER_SORT_KEYS)[number]
+
+/**
+ * `Créditos` and `Saldo` have no entry here — they come from walking each
+ * client's credits in `listCustomersPage` below, and sorting them would only
+ * reorder the fifty rows already on the page. See SPEC 02.
+ */
+function customerOrderBy(sort: SortState<CustomerSortKey>) {
+  if (!sort) return [{ active: 'desc' as const }, { firstName: 'asc' as const }]
+
+  switch (sort.key) {
+    case 'name':
+      return { firstName: sort.dir }
+    case 'commerce':
+      return { commerce: { name: sort.dir } }
+    case 'route':
+      return { route: { name: sort.dir } }
+    case 'collector':
+      return { route: { collector: { firstName: sort.dir } } }
+  }
+}
+
 /**
  * One page of clients, each with their book attached.
  *
@@ -365,6 +388,7 @@ export async function listCustomersPage(
   filter: CustomerListFilter,
   page: number,
   asOf = today(),
+  sort: SortState<CustomerSortKey> = null,
 ): Promise<Paged<CustomerPortfolioRow>> {
   const where = customerListWhere(filter)
 
@@ -373,7 +397,7 @@ export async function listCustomersPage(
 
   const rows = await db.customer.findMany({
     where,
-    orderBy: [{ active: 'desc' }, { firstName: 'asc' }],
+    orderBy: customerOrderBy(sort),
     include: customerInclude,
     skip: params.skip,
     take: params.take,
