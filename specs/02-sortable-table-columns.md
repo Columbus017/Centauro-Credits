@@ -1,6 +1,6 @@
 # SPEC 02 — Sortable table columns
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** —
 > **Date:** 2026-08-17
 > **Objective:** Add clickable ascending/descending sort to the column headers of the six admin list tables, using URL params so the order is linkable and reloadable like the existing filters.
@@ -126,19 +126,19 @@ Note: this repo's convention (see SPEC 01) is that a step can exceed the 30–50
 
 **Core behavior**
 
-- [ ] Clicking a sortable column header on any of the six tables navigates to a URL carrying `?sort=<key>&dir=asc`.
-- [ ] Clicking the same header again flips it to `dir=desc`.
-- [ ] Clicking it a third time removes `sort`/`dir` from the URL and the table returns to its original default order.
-- [ ] The active column's chevron is visually distinct (filled/highlighted) in the current direction; every other sortable column shows a neutral, muted chevron pair.
-- [ ] Sorting from page 2 (or later) of `/clients`, `/credits`, or `/payments` lands on page 1.
+- [x] Clicking a sortable column header on any of the six tables navigates to a URL carrying `?sort=<key>&dir=asc`.
+- [x] Clicking the same header again flips it to `dir=desc`.
+- [x] Clicking it a third time removes `sort`/`dir` from the URL and the table returns to its original default order.
+- [x] The active column's chevron is visually distinct (filled/highlighted) in the current direction; every other sortable column shows a neutral, muted chevron pair.
+- [x] Sorting from page 2 (or later) of `/clients`, `/credits`, or `/payments` lands on page 1.
 
 **Per table**
 
-- [ ] `/clients`: Cliente, Comercio, Ruta, Cobrador are sortable; Créditos and Saldo render as plain headers with no chevron.
-- [ ] `/credits`: Código, Cliente, Cobrador, Fecha inicio, Principal are sortable; Total, Pagos, Saldo, Estado are plain.
-- [ ] `/payments`: all eight columns are sortable, including Fecha and Saldo.
-- [ ] `/routes`, `/collectors`: every listed column is sortable except Cobradores' Rutas.
-- [ ] `/admin/users`: Usuario, Username, Rol, Cobrador vinculado, Última actividad, Estado are all sortable.
+- [x] `/clients`: Cliente, Comercio, Ruta, Cobrador are sortable; Créditos and Saldo render as plain headers with no chevron.
+- [x] `/credits`: Código, Cliente, Cobrador, Fecha inicio, Principal are sortable; Total, Pagos, Saldo, Estado are plain.
+- [x] `/payments`: all eight columns are sortable, including Fecha and Saldo.
+- [x] `/routes`, `/collectors`: every listed column is sortable except Cobradores' Rutas.
+- [x] `/admin/users`: Usuario, Username, Rol, Cobrador vinculado, Última actividad, Estado are all sortable.
 
 **Correctness**
 
