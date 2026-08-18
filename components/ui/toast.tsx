@@ -39,6 +39,9 @@ function ToastList() {
         'relative flex items-start gap-2 rounded-xl bg-popover p-4 text-sm text-popover-foreground shadow-lg ring-1 ring-foreground/10 duration-100',
         'data-starting-style:animate-in data-starting-style:fade-in-0 data-starting-style:slide-in-from-bottom-2',
         'data-ending-style:animate-out data-ending-style:fade-out-0',
+        // Toasts past the Provider's `limit` are marked, not removed — they
+        // wait inert and hidden until an earlier one closes and promotes them.
+        'data-limited:hidden',
       )}
     >
       <CheckCircle2 className="mt-px size-4 shrink-0 text-success" />

@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useEffect, useState } from 'react'
 import { Wallet } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 
@@ -18,6 +18,7 @@ import {
 import { FieldError, FormError } from '@/components/forms/form-errors'
 import { FormField } from '@/components/form-field'
 import { Input } from '@/components/ui/input'
+import { toastSuccess } from '@/components/ui/toast'
 import { formatQCents } from '@/lib/format'
 import { recordPayment } from '@/lib/actions/credits'
 import { EMPTY_STATE, type FormState } from '@/lib/actions/form-state'
@@ -46,6 +47,7 @@ export function RecordPaymentDialog({
   locale: string
 }) {
   const t = useTranslations('payments.record')
+  const tt = useTranslations('toast')
   const uiLocale = useLocale()
   const [amount, setAmount] = useState('')
   const [open, setOpen] = useState(false)
@@ -72,6 +74,13 @@ export function RecordPaymentDialog({
       setAmount('')
     }
   }
+
+  // A toast is an external side effect, unlike the state adjustments above —
+  // it must not run during render, where Strict Mode double-invokes the
+  // function body and would fire it twice per submission.
+  useEffect(() => {
+    if (state.ok) toastSuccess(tt('paymentRecorded'))
+  }, [state, tt])
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

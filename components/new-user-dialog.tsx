@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 
@@ -19,6 +19,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { toastSuccess } from '@/components/ui/toast'
 import { createUser } from '@/lib/actions/users'
 import { EMPTY_STATE, type FormState } from '@/lib/actions/form-state'
 
@@ -30,6 +31,7 @@ export function NewUserDialog({
   const t = useTranslations('admin.users')
   const tc = useTranslations('common')
   const tRoles = useTranslations('roles')
+  const tt = useTranslations('toast')
   const locale = useLocale()
 
   const [open, setOpen] = useState(false)
@@ -53,6 +55,13 @@ export function NewUserDialog({
       setConfirm('')
     }
   }
+
+  // A toast is an external side effect, unlike the state adjustments above —
+  // it must not run during render, where Strict Mode double-invokes the
+  // function body and would fire it twice per submission.
+  useEffect(() => {
+    if (state.ok) toastSuccess(tt('userCreated'))
+  }, [state, tt])
 
   // The confirmation never reaches the server: it exists to catch a typo, and
   // the server has nothing to compare it against.
