@@ -218,9 +218,12 @@ export function DailyCloseForm({
                     // unselected, and says so.
                     defaultValue={payment.creditId || undefined}
                     autoFocus={payment.key === focusKey}
-                    onValueChange={(creditId) =>
+                    onValueChange={(creditId) => {
                       updatePayment(payment.key, { creditId })
-                    }
+                      // One Tab saved per row: the amount is what the
+                      // operator types next anyway.
+                      amountInputRefs.current.get(payment.key)?.focus()
+                    }}
                     ref={(el) => {
                       if (el) creditFieldRefs.current.set(payment.key, el)
                       else creditFieldRefs.current.delete(payment.key)
