@@ -6,7 +6,23 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-export type SelectOption = { value: string; label: string }
+export type SelectOption = {
+  value: string
+  label: string
+  /**
+   * A second line under `label` — the client's name beneath a card number.
+   *
+   * The searchable variant stacks the two; this plain one joins them on a
+   * single line. Both are searched. It is optional because most option lists
+   * (collectors, roles, statuses) have nothing to put there.
+   */
+  detail?: string
+}
+
+/** `label · detail`, or just the label when there is no second line. */
+function displayLabel(option: SelectOption) {
+  return option.detail ? `${option.label} · ${option.detail}` : option.label
+}
 
 /**
  * A labelled select.
@@ -39,9 +55,16 @@ export function SelectField({
    */
   onValueChange?: (value: string) => void
 }) {
+  // One list feeds both `items` and the popup, so the trigger and the options
+  // can never disagree about what a row says — including its second line.
+  const items = options.map((option) => ({
+    value: option.value,
+    label: displayLabel(option),
+  }))
+
   return (
     <Select
-      items={options}
+      items={items}
       name={name}
       defaultValue={defaultValue ?? options[0]?.value}
       onValueChange={
@@ -52,7 +75,7 @@ export function SelectField({
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {options.map((option) => (
+        {items.map((option) => (
           <SelectItem key={option.value} value={option.value}>
             {option.label}
           </SelectItem>
