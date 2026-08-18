@@ -5,6 +5,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { notFound } from 'next/navigation'
 
 import { ThemeScript } from '@/components/theme-script'
+import { ToastProvider } from '@/components/ui/toast'
 import { routing } from '@/i18n/routing'
 import '../globals.css'
 
@@ -60,7 +61,9 @@ export default async function LocaleLayout({
     >
       <body className="font-sans antialiased">
         <ThemeScript />
-        <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        <NextIntlClientProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   )
