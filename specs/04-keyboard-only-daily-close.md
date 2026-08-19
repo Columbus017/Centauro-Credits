@@ -1,6 +1,6 @@
 # SPEC 04 — Keyboard-only ingreso diario
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** —
 > **Date:** 2026-08-18
 > **Objective:** Make the daily-close ("ingreso diario") entry form fully completable via keyboard alone, primarily by having Enter in a payment row's amount field add the next row instead of prematurely submitting the form, with matching focus management on row add/remove, collector change, and validation errors.
@@ -84,27 +84,27 @@ Each step ships working and is independently testable; nothing is half-wired at 
 
 **Core keyboard behavior**
 
-- [ ] Pressing Enter in any payment row's amount field adds a new payment row and moves focus to its credit field, without submitting the form.
-- [ ] Pressing Enter in Base, Desembolsado, or Sobrante does not submit the form and has no other visible effect.
-- [ ] Selecting a credit from a row's combobox via keyboard moves focus to that row's amount field.
-- [ ] Removing a payment row via its trash button moves focus to the amount field one position up in the resulting list (or the new first row, if the removed row was first).
-- [ ] Changing the collector focuses the credit field of the resulting single blank payment row.
+- [x] Pressing Enter in any payment row's amount field adds a new payment row and moves focus to its credit field, without submitting the form.
+- [x] Pressing Enter in Base, Desembolsado, or Sobrante does not submit the form and has no other visible effect.
+- [x] Selecting a credit from a row's combobox via keyboard moves focus to that row's amount field.
+- [x] Removing a payment row via its trash button moves focus to the amount field one position up in the resulting list (or the new first row, if the removed row was first).
+- [x] Changing the collector focuses the credit field of the resulting single blank payment row.
 
 **Error focus**
 
-- [ ] Submitting with a row that has an amount but no selected credit shows the existing banner and moves focus to that row's credit field.
-- [ ] Submitting with a server-rejected `collectorId`, `closeDate`, `base`, `disbursed`, or `surplus` moves focus to the first such field, in that form order, once the page updates after the round trip.
+- [x] Submitting with a row that has an amount but no selected credit shows the existing banner and moves focus to that row's credit field.
+- [x] Submitting with a server-rejected `collectorId`, `closeDate`, `base`, `disbursed`, or `surplus` moves focus to the first such field, in that form order, once the page updates after the round trip.
 
 **End-to-end**
 
-- [ ] Tabbing from the form's first control through Collector → Date → each payment row → "Agregar pago" → Base → Desembolsado → Sobrante → Guardar reaches every control exactly once, with no control skipped and no keyboard trap.
-- [ ] The full flow — pick collector, set date, add three payments naming different credits, set base/disbursed/surplus, submit — completes start to finish using only Tab, Shift+Tab, arrow keys, typing, and Enter/Space, without touching the mouse.
+- [x] Tabbing from the form's first control through Collector → Date → each payment row → "Agregar pago" → Base → Desembolsado → Sobrante → Guardar reaches every control exactly once, with no control skipped and no keyboard trap.
+- [x] The full flow — pick collector, set date, add three payments naming different credits, set base/disbursed/surplus, submit — completes start to finish using only Tab, Shift+Tab, arrow keys, typing, and Enter/Space, without touching the mouse.
 
 **No regressions**
 
-- [ ] `pnpm test`, `pnpm typecheck`, and `pnpm lint` all pass.
-- [ ] `pnpm build && pnpm start` serves `/daily-close` with no hydration error.
-- [ ] Mouse-driven use (clicking "Agregar pago", clicking a select option, clicking Guardar) still works exactly as before.
+- [x] `pnpm test`, `pnpm typecheck`, and `pnpm lint` all pass.
+- [x] `pnpm build && pnpm start` serves `/daily-close` with no hydration error.
+- [x] Mouse-driven use (clicking "Agregar pago", clicking a select option, clicking Guardar) still works exactly as before.
 
 ---
 
