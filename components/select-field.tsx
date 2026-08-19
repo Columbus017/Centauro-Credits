@@ -47,6 +47,7 @@ export function SelectField({
   name,
   autoFocus,
   onValueChange,
+  ref,
 }: {
   options: SelectOption[]
   defaultValue?: string
@@ -69,6 +70,8 @@ export function SelectField({
    * fail with "Event handlers cannot be passed to Client Component props".
    */
   onValueChange?: (value: string) => void
+  /** The focusable control: `SelectTrigger`, or `SearchableSelect`'s input. */
+  ref?: React.Ref<HTMLElement>
 }) {
   // A long list is unusable as a dropdown: Base UI's typeahead moves the
   // highlight but shows the operator nothing of what they typed.
@@ -87,6 +90,7 @@ export function SelectField({
         // would be a new function even when the prop is absent, which is the
         // thing that breaks server-rendered pages.
         onValueChange={onValueChange}
+        ref={ref as React.Ref<HTMLInputElement>}
       />
     )
   }
@@ -107,7 +111,12 @@ export function SelectField({
         onValueChange ? (value) => onValueChange(String(value)) : undefined
       }
     >
-      <SelectTrigger size={size} className={className} autoFocus={autoFocus}>
+      <SelectTrigger
+        size={size}
+        className={className}
+        autoFocus={autoFocus}
+        ref={ref as React.Ref<HTMLButtonElement>}
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

@@ -33,6 +33,7 @@ export function SearchableSelect({
   name,
   autoFocus,
   onValueChange,
+  ref,
 }: {
   options: SelectOption[]
   defaultValue?: string
@@ -42,6 +43,7 @@ export function SearchableSelect({
   /** Focus the search input on mount, for a row a repeater just added. */
   autoFocus?: boolean
   onValueChange?: (value: string) => void
+  ref?: React.Ref<HTMLInputElement>
 }) {
   const t = useTranslations('common')
   const [open, setOpen] = useState(false)
@@ -79,6 +81,7 @@ export function SearchableSelect({
           autoFocus={autoFocus}
           // Open, the field is a search box; closed, it is a picker.
           placeholder={open ? t('searchOption') : t('selectPlaceholder')}
+          ref={ref}
         />
         <ComboboxTrigger />
       </ComboboxInputGroup>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useMemo, useState } from 'react'
+import { useActionState, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 
@@ -26,6 +26,12 @@ type PaymentDraft = { key: number; creditId: string; amount: string }
 function toNumber(value: string) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+// Only the "Guardar" button submits — Enter here has no row to add, so it is
+// simply swallowed rather than triggering an implicit submit.
+function swallowEnter(event: React.KeyboardEvent) {
+  if (event.key === 'Enter') event.preventDefault()
 }
 
 /**
@@ -62,6 +68,17 @@ export function DailyCloseForm({
   // not the operator asking for a payment row.
   const [focusKey, setFocusKey] = useState<number | null>(null)
   const [collectorId, setCollectorId] = useState(collectors[0]?.value ?? '')
+
+  const collectorFieldRef = useRef<HTMLElement>(null)
+  const closeDateRef = useRef<HTMLInputElement>(null)
+  const baseRef = useRef<HTMLInputElement>(null)
+  const disbursedRef = useRef<HTMLInputElement>(null)
+  const surplusRef = useRef<HTMLInputElement>(null)
+
+  // Keyed by `payment.key`, not index — a row's identity survives its
+  // neighbors being added or removed.
+  const creditFieldRefs = useRef(new Map<number, HTMLElement>())
+  const amountInputRefs = useRef(new Map<number, HTMLInputElement>())
 
   // Only the chosen collector's book: the action refuses a credit from anyone
   // else's round, and offering one the server will reject is a trap.
@@ -101,7 +118,15 @@ export function DailyCloseForm({
   }
 
   function removePayment(key: number) {
-    setPayments((current) => current.filter((payment) => payment.key !== key))
+    const removedIndex = payments.findIndex((payment) => payment.key === key)
+    const remaining = payments.filter((payment) => payment.key !== key)
+    setPayments(remaining)
+    // The trash button is disabled at one row, so `remaining` is never empty
+    // here — a neighbor always exists to take focus.
+    const targetKey = remaining[Math.max(0, removedIndex - 1)]?.key
+    if (targetKey !== undefined) {
+      amountInputRefs.current.get(targetKey)?.focus()
+    }
   }
 
   // One JSON field for the repeater, as `newIncome.php` posted it.
@@ -127,6 +152,24 @@ export function DailyCloseForm({
   // Derived, so the banner clears itself the moment the row is completed.
   const creditError = creditErrorShown && missingCredit
 
+  // Only reachable after a real round trip: the client-side `missingCredit`
+  // check above calls `preventDefault()`, so the two never fire together.
+  useEffect(() => {
+    const fieldErrors = state.fieldErrors
+    if (!fieldErrors) return
+    if (fieldErrors.collectorId) {
+      collectorFieldRef.current?.focus()
+    } else if (fieldErrors.closeDate) {
+      closeDateRef.current?.focus()
+    } else if (fieldErrors.base) {
+      baseRef.current?.focus()
+    } else if (fieldErrors.disbursed) {
+      disbursedRef.current?.focus()
+    } else if (fieldErrors.surplus) {
+      surplusRef.current?.focus()
+    }
+  }, [state.fieldErrors])
+
   return (
     <form
       action={formAction}
@@ -134,6 +177,12 @@ export function DailyCloseForm({
         if (missingCredit) {
           event.preventDefault()
           setCreditErrorShown(true)
+          const offendingRow = payments.find(
+            (payment) => payment.amount.trim() !== '' && payment.creditId === '',
+          )
+          if (offendingRow) {
+            creditFieldRefs.current.get(offendingRow.key)?.focus()
+          }
         }
       }}
       className="grid gap-6 lg:grid-cols-3"
@@ -156,10 +205,14 @@ export function DailyCloseForm({
                 name="collectorId"
                 className="h-10 w-full"
                 options={collectors}
+                ref={collectorFieldRef}
                 onValueChange={(value) => {
                   setCollectorId(value)
                   // The previous rows point at another collector's credits.
                   setPayments([{ key: nextKey, creditId: '', amount: '' }])
+                  // Same reasoning as `addPayment`: the resulting blank row
+                  // takes the caret, same as one the operator asked for.
+                  setFocusKey(nextKey)
                   setNextKey((key) => key + 1)
                 }}
               />
@@ -173,6 +226,7 @@ export function DailyCloseForm({
                 className="h-10"
                 defaultValue={today}
                 aria-invalid={invalid(state, 'closeDate')}
+                ref={closeDateRef}
               />
               <FieldError state={state} field="closeDate" />
             </FormField>
@@ -199,9 +253,16 @@ export function DailyCloseForm({
                     // unselected, and says so.
                     defaultValue={payment.creditId || undefined}
                     autoFocus={payment.key === focusKey}
-                    onValueChange={(creditId) =>
+                    onValueChange={(creditId) => {
                       updatePayment(payment.key, { creditId })
-                    }
+                      // One Tab saved per row: the amount is what the
+                      // operator types next anyway.
+                      amountInputRefs.current.get(payment.key)?.focus()
+                    }}
+                    ref={(el) => {
+                      if (el) creditFieldRefs.current.set(payment.key, el)
+                      else creditFieldRefs.current.delete(payment.key)
+                    }}
                   />
                 </FormField>
                 <FormField
@@ -218,6 +279,16 @@ export function DailyCloseForm({
                     onChange={(event) =>
                       updatePayment(payment.key, { amount: event.target.value })
                     }
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        addPayment()
+                      }
+                    }}
+                    ref={(el) => {
+                      if (el) amountInputRefs.current.set(payment.key, el)
+                      else amountInputRefs.current.delete(payment.key)
+                    }}
                   />
                 </FormField>
                 <Button
@@ -257,6 +328,8 @@ export function DailyCloseForm({
                 className="h-10 text-right font-mono"
                 value={base}
                 onChange={(event) => setBase(event.target.value)}
+                onKeyDown={swallowEnter}
+                ref={baseRef}
               />
             </FormField>
 
@@ -275,6 +348,8 @@ export function DailyCloseForm({
                 className="h-10 text-right font-mono"
                 value={disbursed}
                 onChange={(event) => setDisbursed(event.target.value)}
+                onKeyDown={swallowEnter}
+                ref={disbursedRef}
               />
             </FormField>
 
@@ -287,6 +362,8 @@ export function DailyCloseForm({
                 className="h-10 text-right font-mono"
                 value={surplus}
                 onChange={(event) => setSurplus(event.target.value)}
+                onKeyDown={swallowEnter}
+                ref={surplusRef}
               />
             </FormField>
 
