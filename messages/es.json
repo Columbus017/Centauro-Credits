@@ -116,6 +116,7 @@
     "activate": "Activar",
     "delete": "Eliminar",
     "confirmDelete": "Esto oculta el crédito y su historial de pagos. ¿Continuar?",
+    "confirmDeleteTitle": "¿Eliminar este crédito?",
     "add": "Agregar"
   },
   "login": {
