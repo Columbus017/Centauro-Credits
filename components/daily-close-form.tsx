@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useMemo, useRef, useState } from 'react'
+import { useActionState, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 
@@ -151,6 +151,24 @@ export function DailyCloseForm({
   const [creditErrorShown, setCreditErrorShown] = useState(false)
   // Derived, so the banner clears itself the moment the row is completed.
   const creditError = creditErrorShown && missingCredit
+
+  // Only reachable after a real round trip: the client-side `missingCredit`
+  // check above calls `preventDefault()`, so the two never fire together.
+  useEffect(() => {
+    const fieldErrors = state.fieldErrors
+    if (!fieldErrors) return
+    if (fieldErrors.collectorId) {
+      collectorFieldRef.current?.focus()
+    } else if (fieldErrors.closeDate) {
+      closeDateRef.current?.focus()
+    } else if (fieldErrors.base) {
+      baseRef.current?.focus()
+    } else if (fieldErrors.disbursed) {
+      disbursedRef.current?.focus()
+    } else if (fieldErrors.surplus) {
+      surplusRef.current?.focus()
+    }
+  }, [state.fieldErrors])
 
   return (
     <form
