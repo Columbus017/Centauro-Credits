@@ -97,6 +97,7 @@ export default async function CreditDetailPage({
                 size="lg"
                 className="text-destructive"
                 confirm={tc('confirmDelete')}
+                confirmTitle={tc('confirmDeleteTitle')}
               >
                 {tc('delete')}
               </ActionButton>
