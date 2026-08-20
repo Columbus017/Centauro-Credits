@@ -1,6 +1,6 @@
 # SPEC 05 — Cursor affordance and confirmation modal
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** —
 > **Date:** 2026-08-18
 > **Objective:** Give every button in the app a pointer cursor on hover, and replace the native `window.confirm()` used when deleting a credit with a styled `AlertDialog` built on the `@base-ui/react` primitive already used by every other `components/ui/*` wrapper.
@@ -83,22 +83,22 @@ Each step ships working and is independently testable; nothing is half-wired at 
 
 **Cursor**
 
-- [ ] Hovering any button in the app — including "Registrar pago", "Eliminar" on a credit, and "Cerrar sesión" — shows a pointer cursor.
-- [ ] Hovering a disabled button shows a not-allowed cursor.
+- [x] Hovering any button in the app — including "Registrar pago", "Eliminar" on a credit, and "Cerrar sesión" — shows a pointer cursor.
+- [x] Hovering a disabled button shows a not-allowed cursor.
 
 **Confirmation modal**
 
-- [ ] Clicking "Eliminar" on a credit's detail page opens a styled dialog matching the app's existing dialog look (dark/light tokens, `components/ui/dialog.tsx`-consistent) — no native browser `confirm()` alert appears.
-- [ ] The dialog shows the title from `common.confirmDeleteTitle` and the description from `common.confirmDelete`, with "Cancelar" and "Eliminar" actions.
-- [ ] Clicking "Cancelar" (or pressing Escape, or clicking the backdrop) closes the dialog and sends no request — the credit is untouched.
-- [ ] Clicking "Eliminar" in the dialog shows `tc('saving')` on that button while the action is in flight, then redirects to `/credits` and shows the existing `creditDeleted` toast.
-- [ ] `ActionButton` call sites that don't pass `confirm` (deactivate collector/route/client/user, void payment) are visually and behaviorally unchanged — no dialog appears for them.
+- [x] Clicking "Eliminar" on a credit's detail page opens a styled dialog matching the app's existing dialog look (dark/light tokens, `components/ui/dialog.tsx`-consistent) — no native browser `confirm()` alert appears.
+- [x] The dialog shows the title from `common.confirmDeleteTitle` and the description from `common.confirmDelete`, with "Cancelar" and "Eliminar" actions.
+- [x] Clicking "Cancelar" (or pressing Escape, or clicking the backdrop) closes the dialog and sends no request — the credit is untouched.
+- [x] Clicking "Eliminar" in the dialog shows `tc('saving')` on that button while the action is in flight, then redirects to `/credits` and shows the existing `creditDeleted` toast.
+- [x] `ActionButton` call sites that don't pass `confirm` (deactivate collector/route/client/user, void payment) are visually and behaviorally unchanged — no dialog appears for them.
 
 **No regressions**
 
-- [ ] `pnpm test`, `pnpm typecheck`, and `pnpm lint` all pass.
-- [ ] `pnpm build && pnpm start` serves the credit detail page and the app shell (for logout) with no hydration error.
-- [ ] Both locales (`es`, `en`) show translated dialog text, never a raw message key.
+- [x] `pnpm test`, `pnpm typecheck`, and `pnpm lint` all pass.
+- [x] `pnpm build && pnpm start` serves the credit detail page and the app shell (for logout) with no hydration error.
+- [x] Both locales (`es`, `en`) show translated dialog text, never a raw message key.
 
 ---
 
