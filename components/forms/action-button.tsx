@@ -1,11 +1,21 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { useFormStatus } from 'react-dom'
 import { useLocale } from 'next-intl'
 
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogOverlay,
+  AlertDialogPortal,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { toastSuccess } from '@/components/ui/toast'
 
 /**
@@ -22,6 +32,7 @@ export function ActionButton({
   size = 'sm',
   className,
   confirm,
+  confirmTitle,
   toastMessage,
 }: {
   action: (formData: FormData) => void | Promise<void>
@@ -33,25 +44,67 @@ export function ActionButton({
   className?: string
   /** Text for a confirmation prompt; omit for actions that need none. */
   confirm?: string
+  /** Title for the confirmation dialog. Required whenever `confirm` is set. */
+  confirmTitle?: string
   /** Fired once the action completes; omit for actions that need no toast. */
   toastMessage?: string
 }) {
   const locale = useLocale()
+  const tc = useTranslations('common')
+  const formId = useId()
+  const [open, setOpen] = useState(false)
 
-  return (
-    <form
-      action={action}
-      onSubmit={(event) => {
-        if (confirm && !window.confirm(confirm)) event.preventDefault()
-      }}
-    >
+  const hiddenFields = (
+    <>
       <input type="hidden" name="locale" value={locale} />
       {Object.entries(fields).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
-      <Submit variant={variant} size={size} className={className} toastMessage={toastMessage}>
-        {children}
-      </Submit>
+    </>
+  )
+
+  if (!confirm) {
+    return (
+      <form action={action}>
+        {hiddenFields}
+        <Submit variant={variant} size={size} className={className} toastMessage={toastMessage}>
+          {children}
+        </Submit>
+      </form>
+    )
+  }
+
+  return (
+    <form id={formId} action={action}>
+      {hiddenFields}
+      <AlertDialog open={open} onOpenChange={setOpen}>
+        <AlertDialogTrigger
+          render={<Button variant={variant} size={size} className={className} />}
+        >
+          {children}
+        </AlertDialogTrigger>
+        <AlertDialogPortal>
+          <AlertDialogOverlay onClick={() => setOpen(false)} />
+          <AlertDialogContent>
+            <AlertDialogTitle>{confirmTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{confirm}</AlertDialogDescription>
+            <div className="flex justify-end gap-2">
+              <AlertDialogClose render={<Button variant="outline" size={size} />}>
+                {tc('cancel')}
+              </AlertDialogClose>
+              <Submit
+                form={formId}
+                variant={variant}
+                size={size}
+                className={className}
+                toastMessage={toastMessage}
+              >
+                {children}
+              </Submit>
+            </div>
+          </AlertDialogContent>
+        </AlertDialogPortal>
+      </AlertDialog>
     </form>
   )
 }
@@ -62,12 +115,15 @@ function Submit({
   size,
   className,
   toastMessage,
+  form,
 }: {
   children: React.ReactNode
   variant?: React.ComponentProps<typeof Button>['variant']
   size?: React.ComponentProps<typeof Button>['size']
   className?: string
   toastMessage?: string
+  /** HTML `form` attribute, needed when this button is portalled outside the `<form>` DOM subtree. */
+  form?: string
 }) {
   // `useFormStatus` reads the enclosing form, so it has to be its own component.
   const { pending } = useFormStatus()
@@ -82,7 +138,14 @@ function Submit({
   }, [pending, toastMessage])
 
   return (
-    <Button type="submit" variant={variant} size={size} className={className} disabled={pending}>
+    <Button
+      type="submit"
+      form={form}
+      variant={variant}
+      size={size}
+      className={className}
+      disabled={pending}
+    >
       {pending ? tc('saving') : children}
     </Button>
   )
