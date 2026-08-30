@@ -42,10 +42,19 @@ function ComboboxInputGroup({
   )
 }
 
-function ComboboxInput({ className, ...props }: ComboboxPrimitive.Input.Props) {
+function ComboboxInput({ className, onKeyDown, ...props }: ComboboxPrimitive.Input.Props) {
   return (
     <ComboboxPrimitive.Input
       data-slot="combobox-input"
+      onKeyDown={(event) => {
+        onKeyDown?.(event)
+        // Base UI only preventDefaults Enter when it has a highlighted match to
+        // select; with none, Enter falls through to the browser's implicit
+        // submit of the enclosing form's submit button. A search box must
+        // never do that — calling preventDefault a second time when Base UI
+        // already selected something is a no-op, so this is safe either way.
+        if (event.key === "Enter") event.preventDefault()
+      }}
       className={cn(
         // `any-pointer-coarse:text-base` keeps iOS from zooming the viewport
         // when the field takes focus.
