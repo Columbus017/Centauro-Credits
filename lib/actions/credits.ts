@@ -92,6 +92,37 @@ const creditSchema = z.object({
 })
 
 /**
+ * The credit + origination ledger row pair, shared by `createCredit` and
+ * `createCreditInline` so the two entry points can never drift apart.
+ */
+async function insertCredit(
+  tx: Tx | typeof db,
+  data: {
+    customerId: number
+    collectorId: number
+    code: string
+    startDate: string
+    principal: number
+  },
+) {
+  const totalDue = fromCents(payoffTotalCents(data.principal))
+  const created = await tx.credit.create({
+    data: { ...data, startDate: isoDate(data.startDate) },
+    include: { customer: { select: { firstName: true, lastName: true } } },
+  })
+  await tx.ledgerEntry.create({
+    data: {
+      creditId: created.id,
+      kind: 'origination',
+      entryDate: isoDate(data.startDate),
+      amount: totalDue,
+      runningBalance: totalDue,
+    },
+  })
+  return created
+}
+
+/**
  * Ports `BLL/credit.php` — `nuevo`: the credit and its origination row in one
  * transaction, the origination carrying `principal × (1 + rate)` as both the
  * amount and the opening balance.
@@ -105,32 +136,7 @@ export async function createCredit(
   const parsed = parseForm(creditSchema, formData)
   if (!parsed.ok) return parsed.state
 
-  const { customerId, collectorId, code, startDate, principal } = parsed.data
-  const totalDue = fromCents(payoffTotalCents(principal))
-
-  const credit = await db.$transaction(async (tx) => {
-    const created = await tx.credit.create({
-      data: {
-        customerId,
-        collectorId,
-        code,
-        startDate: isoDate(startDate),
-        principal,
-      },
-    })
-
-    await tx.ledgerEntry.create({
-      data: {
-        creditId: created.id,
-        kind: 'origination',
-        entryDate: isoDate(startDate),
-        amount: totalDue,
-        runningBalance: totalDue,
-      },
-    })
-
-    return created
-  })
+  const credit = await db.$transaction((tx) => insertCredit(tx, parsed.data))
 
   revalidateLedger()
   redirect({
