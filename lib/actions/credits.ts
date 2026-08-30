@@ -122,6 +122,39 @@ async function insertCredit(
   return created
 }
 
+export type CreateCreditInlineState = FormState & {
+  /** Set only when `ok` — the row `daily-close-form.tsx` merges into its options and auto-selects. */
+  credit?: { value: string; label: string; detail: string; collectorId: string }
+}
+
+/**
+ * A second entry point to the same creation logic `createCredit` uses, for
+ * the ingreso diario modal: it returns the created credit instead of
+ * redirecting, so the daily-close form in progress is never interrupted.
+ */
+export async function createCreditInline(
+  _previous: CreateCreditInlineState,
+  formData: FormData,
+): Promise<CreateCreditInlineState> {
+  await requireAdmin()
+
+  const parsed = parseForm(creditSchema, formData)
+  if (!parsed.ok) return parsed.state
+
+  const created = await db.$transaction((tx) => insertCredit(tx, parsed.data))
+
+  revalidateLedger()
+  return {
+    ok: true,
+    credit: {
+      value: String(created.id),
+      label: created.code,
+      detail: `${created.customer.firstName} ${created.customer.lastName}`,
+      collectorId: String(created.collectorId),
+    },
+  }
+}
+
 /**
  * Ports `BLL/credit.php` — `nuevo`: the credit and its origination row in one
  * transaction, the origination carrying `principal × (1 + rate)` as both the
