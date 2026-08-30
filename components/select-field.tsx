@@ -47,6 +47,8 @@ export function SelectField({
   name,
   autoFocus,
   onValueChange,
+  emptyActionLabel,
+  onEmptyAction,
   ref,
 }: {
   options: SelectOption[]
@@ -70,6 +72,12 @@ export function SelectField({
    * fail with "Event handlers cannot be passed to Client Component props".
    */
   onValueChange?: (value: string) => void
+  /**
+   * Forwarded to `SearchableSelect`'s empty state, when this picks that
+   * branch. Same Client-Component-only caveat as `onValueChange`.
+   */
+  emptyActionLabel?: string
+  onEmptyAction?: (query: string) => void
   /** The focusable control: `SelectTrigger`, or `SearchableSelect`'s input. */
   ref?: React.Ref<HTMLElement>
 }) {
@@ -90,6 +98,8 @@ export function SelectField({
         // would be a new function even when the prop is absent, which is the
         // thing that breaks server-rendered pages.
         onValueChange={onValueChange}
+        emptyActionLabel={emptyActionLabel}
+        onEmptyAction={onEmptyAction}
         ref={ref as React.Ref<HTMLInputElement>}
       />
     )
