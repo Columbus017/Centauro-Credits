@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 
 import type { SelectOption } from '@/components/select-field'
+import { Button } from '@/components/ui/button'
 import {
   Combobox,
   ComboboxContent,
@@ -33,6 +34,8 @@ export function SearchableSelect({
   name,
   autoFocus,
   onValueChange,
+  emptyActionLabel,
+  onEmptyAction,
   ref,
 }: {
   options: SelectOption[]
@@ -43,10 +46,15 @@ export function SearchableSelect({
   /** Focus the search input on mount, for a row a repeater just added. */
   autoFocus?: boolean
   onValueChange?: (value: string) => void
+  /** Label for a button shown in the empty state instead of the plain "no results" text. Requires `onEmptyAction`. */
+  emptyActionLabel?: string
+  /** Called with the current search query when the empty-state button is activated. */
+  onEmptyAction?: (query: string) => void
   ref?: React.Ref<HTMLInputElement>
 }) {
   const t = useTranslations('common')
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
 
   // Base UI holds the whole option object as the value, not the id string.
   //
@@ -75,6 +83,7 @@ export function SearchableSelect({
           ? (value) => onValueChange(value ? (value as SelectOption).value : '')
           : undefined
       }
+      onInputValueChange={setQuery}
     >
       <ComboboxInputGroup size={size} className={className}>
         <ComboboxInput
@@ -87,7 +96,20 @@ export function SearchableSelect({
       </ComboboxInputGroup>
 
       <ComboboxContent>
-        <ComboboxEmpty>{t('noResults')}</ComboboxEmpty>
+        <ComboboxEmpty>
+          {emptyActionLabel && onEmptyAction ? (
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              onClick={() => onEmptyAction(query)}
+            >
+              {emptyActionLabel}
+            </Button>
+          ) : (
+            t('noResults')
+          )}
+        </ComboboxEmpty>
         <ComboboxList>
           {(option: SelectOption) => (
             <ComboboxItem key={option.value} value={option}>
