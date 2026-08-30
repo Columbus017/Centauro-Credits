@@ -50,6 +50,10 @@ export function DailyCloseForm({
   credits: { value: string; label: string; detail: string; collectorId: string }[]
   today: string
   locale: string
+  /** Existing clients, for the "+ Nuevo crédito" dialog. Unused until Step 8. */
+  customers?: { value: string; label: string; detail?: string }[]
+  /** For the dialog's live total-a-pagar calculation. Unused until Step 8. */
+  interestRate?: number
 }) {
   const t = useTranslations('dailyClose.form')
   const tc = useTranslations('common')

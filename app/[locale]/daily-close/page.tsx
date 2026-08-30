@@ -15,9 +15,10 @@ import {
 import { Link } from '@/i18n/navigation'
 import { formatDate, formatQ } from '@/lib/format'
 import { today } from '@/lib/clock'
+import { DEFAULT_INTEREST_RATE } from '@/lib/ledger'
 import { listCredits } from '@/lib/queries/credits'
 import { listDailyCloses } from '@/lib/queries/daily-close'
-import { collectorOptions } from '@/lib/queries/entities'
+import { collectorOptions, customerOptions } from '@/lib/queries/entities'
 import { requireAdmin } from '@/lib/session'
 
 export default async function DailyClosePage({ params }: PageProps<'/[locale]'>) {
@@ -27,8 +28,9 @@ export default async function DailyClosePage({ params }: PageProps<'/[locale]'>)
 
   const t = await getTranslations('dailyClose')
 
-  const [collectors, history, live] = await Promise.all([
+  const [collectors, customers, history, live] = await Promise.all([
     collectorOptions(),
+    customerOptions(),
     listDailyCloses(),
     listCredits({ collectorId: null }, { status: 'active' }),
   ])
@@ -55,6 +57,8 @@ export default async function DailyClosePage({ params }: PageProps<'/[locale]'>)
         credits={credits}
         today={today()}
         locale={locale}
+        customers={customers}
+        interestRate={DEFAULT_INTEREST_RATE}
       />
 
       <Card className="mt-6 py-0">
