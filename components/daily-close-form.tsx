@@ -6,7 +6,8 @@ import { useLocale, useTranslations } from 'next-intl'
 
 import { FieldError, FormError, invalid } from '@/components/forms/form-errors'
 import { FormField } from '@/components/form-field'
-import { SelectField } from '@/components/select-field'
+import { NewCreditDialog, type NewCreditResult } from '@/components/new-credit-dialog'
+import { SelectField, type SelectOption } from '@/components/select-field'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -21,7 +22,19 @@ import { dailyCloseCash } from '@/lib/ledger'
 import { submitDailyClose } from '@/lib/actions/credits'
 import { EMPTY_STATE, type FormState } from '@/lib/actions/form-state'
 
-type PaymentDraft = { key: number; creditId: string; amount: string }
+type PaymentDraft = {
+  key: number
+  creditId: string
+  amount: string
+  /**
+   * Bumped only when `creditId` is set *programmatically* (a credit created
+   * from the dialog auto-selected into an already-mounted row) — folded into
+   * the row's `SelectField` `key` so that one case remounts it to pick up the
+   * new `defaultValue`. A manual pick through the combobox itself needs no
+   * remount: Base UI already reflects it without one.
+   */
+  selectSerial: number
+}
 
 function toNumber(value: string) {
   const parsed = Number(value)
@@ -44,16 +57,18 @@ export function DailyCloseForm({
   credits,
   today,
   locale,
+  customers,
+  interestRate,
 }: {
   collectors: { value: string; label: string }[]
   /** Live credits, so a payment names a real one rather than free text. */
   credits: { value: string; label: string; detail: string; collectorId: string }[]
   today: string
   locale: string
-  /** Existing clients, for the "+ Nuevo crédito" dialog. Unused until Step 8. */
-  customers?: { value: string; label: string; detail?: string }[]
-  /** For the dialog's live total-a-pagar calculation. Unused until Step 8. */
-  interestRate?: number
+  /** Existing clients, for the "+ Nuevo crédito" dialog. */
+  customers: SelectOption[]
+  /** For the dialog's live total-a-pagar calculation. */
+  interestRate: number
 }) {
   const t = useTranslations('dailyClose.form')
   const tc = useTranslations('common')
@@ -71,7 +86,24 @@ export function DailyCloseForm({
   // Which row to focus on mount. `null` on first render: the form opening is
   // not the operator asking for a payment row.
   const [focusKey, setFocusKey] = useState<number | null>(null)
+  // Mirrors `focusKey`, but drives the amount field's `autoFocus` for a row
+  // that is created already carrying a credit — `focusKey` still owns the
+  // "operator asked for a blank row" case.
+  const [amountFocusKey, setAmountFocusKey] = useState<number | null>(null)
   const [collectorId, setCollectorId] = useState(collectors[0]?.value ?? '')
+
+  // Credits created from the dialog mid-close, kept in local state rather
+  // than relying solely on the server-fetched `credits` prop catching up:
+  // the automatic post-action route refresh is real, but its timing relative
+  // to `onCreated` firing is not something a same-interaction auto-select
+  // should depend on.
+  const [extraCredits, setExtraCredits] = useState<typeof credits>([])
+  const [creditDialog, setCreditDialog] = useState<{
+    open: boolean
+    /** `null` when opened from the general "+ Nuevo crédito" button. */
+    forRowKey: number | null
+    prefillCode: string
+  }>({ open: false, forRowKey: null, prefillCode: '' })
 
   const collectorFieldRef = useRef<HTMLElement>(null)
   const closeDateRef = useRef<HTMLInputElement>(null)
@@ -84,15 +116,29 @@ export function DailyCloseForm({
   const creditFieldRefs = useRef(new Map<number, HTMLElement>())
   const amountInputRefs = useRef(new Map<number, HTMLInputElement>())
 
+  // All known credits, newest-created included, one entry per id — a credit
+  // created mid-close and picked up moments later by the route refresh must
+  // not render twice in the same list.
+  const allCredits = useMemo(() => {
+    const seen = new Set<string>()
+    return [...credits, ...extraCredits].filter((credit) => {
+      if (seen.has(credit.value)) return false
+      seen.add(credit.value)
+      return true
+    })
+  }, [credits, extraCredits])
+
   // Only the chosen collector's book: the action refuses a credit from anyone
   // else's round, and offering one the server will reject is a trap.
   const ownCredits = useMemo(
-    () => credits.filter((credit) => credit.collectorId === collectorId),
-    [credits, collectorId],
+    () => allCredits.filter((credit) => credit.collectorId === collectorId),
+    [allCredits, collectorId],
   )
 
+  const collectorLabel = collectors.find((collector) => collector.value === collectorId)?.label ?? ''
+
   const [payments, setPayments] = useState<PaymentDraft[]>([
-    { key: 1, creditId: '', amount: '' },
+    { key: 1, creditId: '', amount: '', selectSerial: 0 },
   ])
 
   const collected = useMemo(
@@ -114,11 +160,53 @@ export function DailyCloseForm({
   }
 
   function addPayment() {
-    setPayments((current) => [...current, { key: nextKey, creditId: '', amount: '' }])
+    setPayments((current) => [
+      ...current,
+      { key: nextKey, creditId: '', amount: '', selectSerial: 0 },
+    ])
     // The row the operator just asked for takes the caret, so the card number
     // can be typed without reaching for the mouse again.
     setFocusKey(nextKey)
     setNextKey((key) => key + 1)
+  }
+
+  /**
+   * Resolves the row a credit created from the dialog lands in — the row
+   * that triggered it, else an existing empty row, else a freshly appended
+   * one — and moves focus to that row's amount field.
+   */
+  function handleCreditCreated(credit: NewCreditResult) {
+    setExtraCredits((current) => [...current, credit])
+
+    const triggeringRow =
+      creditDialog.forRowKey !== null
+        ? payments.find((payment) => payment.key === creditDialog.forRowKey)
+        : undefined
+    const emptyRow = payments.find(
+      (payment) => payment.creditId === '' && payment.amount.trim() === '',
+    )
+    const target = triggeringRow ?? emptyRow
+
+    if (target) {
+      setPayments((current) =>
+        current.map((payment) =>
+          payment.key === target.key
+            ? { ...payment, creditId: credit.value, selectSerial: payment.selectSerial + 1 }
+            : payment,
+        ),
+      )
+      // The row is already mounted, so a ref is already there to focus.
+      amountInputRefs.current.get(target.key)?.focus()
+    } else {
+      const key = nextKey
+      setPayments((current) => [
+        ...current,
+        { key, creditId: credit.value, amount: '', selectSerial: 0 },
+      ])
+      setNextKey((value) => value + 1)
+      // The row doesn't exist yet — `autoFocus` claims it once it mounts.
+      setAmountFocusKey(key)
+    }
   }
 
   function removePayment(key: number) {
@@ -213,7 +301,7 @@ export function DailyCloseForm({
                 onValueChange={(value) => {
                   setCollectorId(value)
                   // The previous rows point at another collector's credits.
-                  setPayments([{ key: nextKey, creditId: '', amount: '' }])
+                  setPayments([{ key: nextKey, creditId: '', amount: '', selectSerial: 0 }])
                   // Same reasoning as `addPayment`: the resulting blank row
                   // takes the caret, same as one the operator asked for.
                   setFocusKey(nextKey)
@@ -250,7 +338,7 @@ export function DailyCloseForm({
                   className="flex-1"
                 >
                   <SelectField
-                    key={`${payment.key}-${collectorId}`}
+                    key={`${payment.key}-${collectorId}-${payment.selectSerial}`}
                     className="h-10 w-full"
                     options={ownCredits}
                     // No fallback to the first credit: a row nobody touched is
@@ -263,6 +351,10 @@ export function DailyCloseForm({
                       // operator types next anyway.
                       amountInputRefs.current.get(payment.key)?.focus()
                     }}
+                    emptyActionLabel={t('createCreditAction')}
+                    onEmptyAction={(query) =>
+                      setCreditDialog({ open: true, forRowKey: payment.key, prefillCode: query })
+                    }
                     ref={(el) => {
                       if (el) creditFieldRefs.current.set(payment.key, el)
                       else creditFieldRefs.current.delete(payment.key)
@@ -280,6 +372,7 @@ export function DailyCloseForm({
                     placeholder="0.00"
                     className="h-10 text-right font-mono"
                     value={payment.amount}
+                    autoFocus={payment.key === amountFocusKey}
                     onChange={(event) =>
                       updatePayment(payment.key, { amount: event.target.value })
                     }
@@ -308,10 +401,21 @@ export function DailyCloseForm({
               </div>
             ))}
 
-            <Button type="button" variant="outline" size="lg" onClick={addPayment}>
-              <Plus className="size-4" />
-              {t('addPayment')}
-            </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" size="lg" onClick={addPayment}>
+                <Plus className="size-4" />
+                {t('addPayment')}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={() => setCreditDialog({ open: true, forRowKey: null, prefillCode: '' })}
+              >
+                <Plus className="size-4" />
+                {t('newCredit')}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -384,6 +488,19 @@ export function DailyCloseForm({
           </CardContent>
         </Card>
       </div>
+
+      <NewCreditDialog
+        open={creditDialog.open}
+        onOpenChange={(open) => setCreditDialog((current) => ({ ...current, open }))}
+        customers={customers}
+        collectorId={collectorId}
+        collectorLabel={collectorLabel}
+        interestRate={interestRate}
+        today={today}
+        locale={uiLocale}
+        prefillCode={creditDialog.prefillCode}
+        onCreated={handleCreditCreated}
+      />
     </form>
   )
 }
