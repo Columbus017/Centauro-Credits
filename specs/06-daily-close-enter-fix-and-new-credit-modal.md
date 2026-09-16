@@ -1,6 +1,6 @@
 # SPEC 06 — Enter-submit fix and inline new-credit modal in ingreso diario
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 04 (keyboard-only ingreso diario)
 > **Date:** 2026-08-28
 > **Objective:** Stop the credit-search field in ingreso diario from submitting the daily close when Enter is pressed with no matching card, and let an admin create a brand-new credit — for an existing client, under the collector already selected — from a modal inside that same screen, without leaving it or losing the payments already entered.
@@ -217,29 +217,29 @@ Each step ships working and is independently testable; nothing is half-wired at 
 
 **Enter-submit fix**
 
-- [ ] In ingreso diario, typing a card number that matches no live credit into a row's "No. de tarjeta" field and pressing Enter does nothing observable — the daily close is not submitted, no new payment row is added, focus stays in the field.
-- [ ] With a match highlighted in that same field, Enter still selects it and moves focus to that row's amount field (SPEC 04 behavior, unchanged).
-- [ ] The same "Enter with no match does not submit" behavior holds in every other searchable combobox sitting inside a `<form>` with a submit button — `/credits/new`'s client picker is enough to spot-check.
-- [ ] Pressing Enter in a row's amount field, or in Base/Desembolsado/Sobrante, still behaves exactly as SPEC 04 left it (adds a row / is swallowed).
+- [x] In ingreso diario, typing a card number that matches no live credit into a row's "No. de tarjeta" field and pressing Enter does nothing observable — the daily close is not submitted, no new payment row is added, focus stays in the field.
+- [x] With a match highlighted in that same field, Enter still selects it and moves focus to that row's amount field (SPEC 04 behavior, unchanged).
+- [x] The same "Enter with no match does not submit" behavior holds in every other searchable combobox sitting inside a `<form>` with a submit button — `/credits/new`'s client picker is enough to spot-check.
+- [x] Pressing Enter in a row's amount field, or in Base/Desembolsado/Sobrante, still behaves exactly as SPEC 04 left it (adds a row / is swallowed).
 
 **New-credit modal**
 
-- [ ] A "+ Nuevo crédito" button appears next to "Agregar pago". Clicking it opens a dialog with código, fecha de entrega, capital, total a pagar calculado (live, 15%), and cliente — no cobrador picker, showing instead the collector already selected at the top of the form.
-- [ ] Typing a card number with no match into a row's tarjeta field shows a "Crear nuevo crédito" action in the empty state; activating it opens the same dialog with código prefilled from what was typed, tied to that row.
-- [ ] The dialog's cliente field only offers existing clients; there is no way to create a new client from inside it.
-- [ ] Submitting the dialog with valid data creates the credit and its origination ledger entry (same as `/credits/new`), closes the dialog, shows the `toast.creditCreated` toast, and does **not** navigate away from `/daily-close` — every payment row already entered is untouched.
-- [ ] After creation: if opened from a specific row, that row now shows the new credit selected. If opened from the general button, an existing empty row gets it if one exists, otherwise a new row is added with it selected. Either way, focus lands in that row's amount field.
-- [ ] The newly created credit is immediately choosable from every row's combobox afterward (not just the auto-selected one), without a manual page reload.
-- [ ] Submitting the dialog with invalid data (missing cliente, malformed capital, etc.) shows the same field errors `/credits/new` would show, and the dialog stays open.
-- [ ] Closing the dialog without submitting (Cancelar, Escape, backdrop) discards whatever was typed and leaves every payment row exactly as it was.
-- [ ] `/credits/new` and `/credits/[id]/edit` behave exactly as before — same fields, same redirect, same validation.
+- [x] A "+ Nuevo crédito" button appears next to "Agregar pago". Clicking it opens a dialog with código, fecha de entrega, capital, total a pagar calculado (live, 15%), and cliente — no cobrador picker, showing instead the collector already selected at the top of the form.
+- [x] Typing a card number with no match into a row's tarjeta field shows a "Crear nuevo crédito" action in the empty state; activating it opens the same dialog with código prefilled from what was typed, tied to that row.
+- [x] The dialog's cliente field only offers existing clients; there is no way to create a new client from inside it.
+- [x] Submitting the dialog with valid data creates the credit and its origination ledger entry (same as `/credits/new`), closes the dialog, shows the `toast.creditCreated` toast, and does **not** navigate away from `/daily-close` — every payment row already entered is untouched.
+- [x] After creation: if opened from a specific row, that row now shows the new credit selected. If opened from the general button, an existing empty row gets it if one exists, otherwise a new row is added with it selected. Either way, focus lands in that row's amount field.
+- [x] The newly created credit is immediately choosable from every row's combobox afterward (not just the auto-selected one), without a manual page reload.
+- [x] Submitting the dialog with invalid data (missing cliente, malformed capital, etc.) shows the same field errors `/credits/new` would show, and the dialog stays open.
+- [x] Closing the dialog without submitting (Cancelar, Escape, backdrop) discards whatever was typed and leaves every payment row exactly as it was.
+- [x] `/credits/new` and `/credits/[id]/edit` behave exactly as before — same fields, same redirect, same validation.
 
 **No regressions**
 
-- [ ] `pnpm test`, `pnpm typecheck`, and `pnpm lint` all pass.
-- [ ] `pnpm build && pnpm start` serves `/daily-close` and `/credits/new` with no hydration error.
-- [ ] Both locales (`es`, `en`) show translated dialog text, never a raw message key.
-- [ ] A collector account cannot reach `/daily-close` or trigger `createCreditInline` — both still gate on `requireAdmin()`.
+- [x] `pnpm test`, `pnpm typecheck`, and `pnpm lint` all pass.
+- [x] `pnpm build && pnpm start` serves `/daily-close` and `/credits/new` with no hydration error.
+- [x] Both locales (`es`, `en`) show translated dialog text, never a raw message key.
+- [x] A collector account cannot reach `/daily-close` or trigger `createCreditInline` — both still gate on `requireAdmin()`.
 
 ---
 
