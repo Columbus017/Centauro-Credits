@@ -451,7 +451,11 @@
       "paymentCode": "Card number",
       "addPayment": "Add payment",
       "remove": "Remove",
-      "save": "Save close"
+      "save": "Save close",
+      "newCredit": "New credit",
+      "newCreditDescription": "Create a credit for an existing client in {collector}'s portfolio.",
+      "newCreditCollectorHint": "This credit is created for the collector selected above.",
+      "createCreditAction": "Create new credit"
     },
     "table": {
       "date": "Date",

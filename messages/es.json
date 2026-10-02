@@ -451,7 +451,11 @@
       "paymentCode": "No. de tarjeta",
       "addPayment": "Agregar pago",
       "remove": "Quitar",
-      "save": "Guardar ingreso"
+      "save": "Guardar ingreso",
+      "newCredit": "Nuevo crédito",
+      "newCreditDescription": "Crear un crédito para un cliente existente en la cartera de {collector}.",
+      "newCreditCollectorHint": "Este crédito se crea para el cobrador seleccionado arriba.",
+      "createCreditAction": "Crear nuevo crédito"
     },
     "table": {
       "date": "Fecha",
